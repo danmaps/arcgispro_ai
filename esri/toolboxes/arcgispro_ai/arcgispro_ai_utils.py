@@ -1,5 +1,6 @@
 import requests
 import time
+from datetime import datetime
 import arcpy
 import json
 import os
@@ -271,10 +272,17 @@ def create_feature_layer_from_geojson(geojson_data, output_layer_name):
     """
     geometry_type = infer_geometry_type(geojson_data)
     geojson_file = os.path.join(f"{output_layer_name}.geojson")
+
+    if os.path.exists(geojson_file):
+        # append timestamp to file name
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        geojson_file = os.path.join(f"{output_layer_name}_{timestamp}.geojson")
     
     with open(geojson_file, 'w') as f:
         json.dump(geojson_data, f)
-
+        arcpy.AddMessage(f"GeoJSON file saved to: {geojson_file}")
+    time.sleep(1)
+    arcpy.AddMessage(f"Converting GeoJSON to feature layer: {output_layer_name}")
     arcpy.conversion.JSONToFeatures(geojson_file, output_layer_name, geometry_type=geometry_type)
     
     aprx = arcpy.mp.ArcGISProject("CURRENT")
@@ -324,12 +332,12 @@ def fetch_geojson(api_key, query, output_layer_name):
     ]
 
     try:
-        geojson_data = get_openai_response(api_key, messages)
+        geojson_data = get_openai_response(api_key, messages, "geojson")
 
         # Add debugging to inspect the raw GeoJSON response
         arcpy.AddMessage(f"Raw GeoJSON data:\n{geojson_data}")
 
-        geojson_data = json.loads(geojson_data)  # Assuming single response for simplicity
+        geojson_data = json.loads(geojson_data)
         create_feature_layer_from_geojson(geojson_data, output_layer_name)
         return geojson_data
     except Exception as e:
@@ -387,7 +395,7 @@ def infer_geometry_type(geojson_data):
     else:
         for feature in geojson_data["features"]:
             geometry_type = feature["geometry"]["type"]
-            arcpy.AddMessage(f"found {geometry_type}")
+            # arcpy.AddMessage(f"found {geometry_type}")
             geometry_types.add(geometry_type_map.get(geometry_type))
 
     if len(geometry_types) == 1:
@@ -410,7 +418,7 @@ def convert_series_to_numeric(api_key, field_values):
         "model": "gpt-4o-mini", # gpt-4o-2024-08-06
         "messages": prompt,
         "temperature": 0.3,  # be more predictable, less creative
-        "max_tokens": 1500,
+        "max_tokens": 5000,
         "n": 1,
         "stop": None,
     }
@@ -478,15 +486,25 @@ def make_api_request(url, headers, data):
             time.sleep(1)
     raise Exception("Failed to get response after retries")
 
-def get_openai_response(api_key, messages):
+def get_openai_response(api_key, messages, calling_function):
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
-    data = {
-        "model": "gpt-4o-mini",
-        "response_format": { "type": "json_object" }, # this is very important
-        "messages": messages,
-        "temperature": 0.5,
-        "max_tokens": 500,
-    }
+
+    # if calling function is get_geojson, set the response_format to json_object
+    if calling_function == "geojson":
+        data = {
+            "model": "gpt-4o-mini",
+            "response_format": { "type": "json_object" }, # this is very important
+            "messages": messages,
+            "temperature": 0.5,
+            "max_tokens": 5000,
+        }
+    else:
+        data = {
+            "model": "gpt-4o-mini",
+            "messages": messages,
+            "temperature": 0.5,
+            "max_tokens": 5000,
+        }
     response = make_api_request("https://api.openai.com/v1/chat/completions", headers, data)
     arcpy.AddMessage(f"Returning response from {data['model']}")
     return response["choices"][0]["message"]["content"].strip()
@@ -569,7 +587,7 @@ def generate_python(api_key, map_info, prompt, explain=False):
 
 
     try:
-        code_snippet = get_openai_response(api_key, messages)
+        code_snippet = get_openai_response(api_key, messages, "python")
         # code_snippet = get_symphony_response("python",api_key,messages)
 
         def trim_code_block(code_block):
@@ -743,8 +761,7 @@ def add_ai_response_to_feature_layer(api_key, source, in_layer, out_layer, field
         if source == "OpenAI":
             role = "Respond without any other information, not even a complete sentence. No need for any other decoration or verbage."
             responses_dict = {
-                # oid: get_openai_response(api_key, [{"role": "system", "content": role}, {"role": "user", "content": prompt}])
-                oid: get_openai_response(api_key, [{"role": "system", "content": role}, {"role": "user", "content": prompt}])
+                oid: get_openai_response(api_key, [{"role": "system", "content": role}, {"role": "user", "content": prompt}], "field")
                 for oid, prompt in prompts_dict.items()
             }
         elif source == "Wolfram Alpha":
