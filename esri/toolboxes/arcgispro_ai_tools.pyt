@@ -13,7 +13,7 @@ class Toolbox:
         # List of tool classes associated with this toolbox
         self.tools = [FeatureLayer,
                       Field,
-                      MapInsights,
+                      GetMapInfo,
                       Python,
                       ConvertTextToNumeric]
 
@@ -196,16 +196,37 @@ class Field(object):
         """This method takes place after outputs are processed and
         added to the display."""
         return
-    
-class MapInsights(object):
+class GetMapInfo(object):
     def __init__(self):
         """Define the tool (tool name is the name of the class)."""
-        self.label = "Map Insights"
-        self.description = "Map Insights"
+        self.label = "Get Map Info"
+        self.description = "Get Map Info"
+        self.params = arcpy.GetParameterInfo()
+        self.canRunInBackground = False
 
     def getParameterInfo(self):
         """Define the tool parameters."""
-        params = None
+        in_map = arcpy.Parameter(
+            displayName="Map",
+            name="map",
+            datatype="Map",
+            parameterType="Optional",
+            direction="Input",
+        )
+
+        in_map.description = "The map to get info from."
+
+        output_json_path = arcpy.Parameter(
+            displayName="Output JSON Path",
+            name="output_json_path",
+            datatype="GPString",
+            parameterType="Required",
+            direction="Output",
+        )
+
+        output_json_path.description = "The path to the output JSON file."
+
+        params = [in_map, output_json_path]
         return params
 
     def isLicensed(self):
@@ -216,6 +237,13 @@ class MapInsights(object):
         """Modify the values and properties of parameters before internal
         validation is performed.  This method is called whenever a parameter
         has been changed."""
+        aprx = arcpy.mp.ArcGISProject("CURRENT")
+        if parameters[0].value:
+            # If a map is selected, set the output path to the project home folder with the map name and json extension
+            parameters[1].value = os.path.join(os.path.dirname(aprx.homeFolder), os.path.basename(parameters[0].valueAsText) + ".json")
+        else:
+            # otherwise, set the output path to the current project home folder with the current map name and json extension
+            parameters[1].value = os.path.join(os.path.dirname(aprx.homeFolder), os.path.basename(aprx.activeMap.name) + ".json")
         return
 
     def updateMessages(self, parameters):
@@ -225,12 +253,13 @@ class MapInsights(object):
 
     def execute(self, parameters, messages):
         """The source code of the tool."""
-        
-        return
+        in_map = parameters[0].valueAsText
+        out_json = parameters[1].valueAsText
+        map_info = arcgispro_ai_utils.map_to_json(in_map)
+        with open(out_json, "w") as f:
+            json.dump(map_info, f, indent=4)
 
-    def postExecute(self, parameters):
-        """This method takes place after outputs are processed and
-        added to the display."""
+        arcpy.AddMessage(f"Map info saved to {out_json}")
         return
     
 class Python(object):
