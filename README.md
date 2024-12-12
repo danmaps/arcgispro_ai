@@ -4,29 +4,10 @@
 
 The ArcGIS Pro AI Toolbox is a Python-based toolbox designed to enhance the functionality of ArcGIS Pro by integrating AI capabilities. This toolbox allows users to interact with various AI models, process geospatial data, and generate insights directly within the ArcGIS Pro environment.
 
-## Features
+## Tools
 
-- **Map to JSON**: Convert map information into a structured JSON format.
-- **AI Responses**: Generate AI responses for feature layers using OpenAI and other AI services.
-- **Data Enrichment**: Enrich existing feature layers with AI-generated data.
-- **Custom Prompts**: Utilize customizable prompts for AI interactions.
-
-## Installation
-
-1. Clone the repository:
-
-   ```bash
-   git clone https://github.com/yourusername/arcgispro-ai-toolbox.git
-   ```
-
-2. Navigate to the project directory:
-
-   ```bash
-   cd arcgispro-ai-toolbox
-   ```
-
-3. Install the required packages:
-
-   ```bash
-   pip install -r requirements.txt
-   ```
+**Add AI Generated Field**: Add new fields with AI-generated text based on existing attributes and user-defined prompts.
+**Get Map Info**: Extract information about your current map into a JSON file, providing context for other AI tools.
+**Generate Python Code**: Create Python snippets tailored to your workflows and data context.
+**Create AI Feature Layer**: Generate new feature layers using prompts to describe the data you need.
+**Convert Text to Numeric**: Quickly clean up inconsistent text formats and turn them into numeric fields.
