@@ -271,12 +271,15 @@ def create_feature_layer_from_geojson(geojson_data, output_layer_name):
     output_layer_name (str): The name of the output layer to be created in ArcGIS Pro.
     """
     geometry_type = infer_geometry_type(geojson_data)
-    geojson_file = os.path.join(f"{output_layer_name}.geojson")
+    # use a temp directory to hold to the geojson file
+    import tempfile
+    tempdir = tempfile.gettempdir()
+    geojson_file = os.path.join(tempdir,f"{output_layer_name}.geojson")
 
     if os.path.exists(geojson_file):
         # append timestamp to file name
         timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-        geojson_file = os.path.join(f"{output_layer_name}_{timestamp}.geojson")
+        geojson_file = os.path.join(tempdir,f"{output_layer_name}_{timestamp}.geojson")
     
     with open(geojson_file, 'w') as f:
         json.dump(geojson_data, f)
