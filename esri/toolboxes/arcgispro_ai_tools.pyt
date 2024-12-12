@@ -1,5 +1,6 @@
 import arcpy
 import json
+import os
 from arcgispro_ai import arcgispro_ai_utils
 
 class Toolbox:
@@ -20,16 +21,38 @@ class Toolbox:
 class FeatureLayer(object):
     def __init__(self):
         """Define the tool (tool name is the name of the class)."""
-        self.label = "Feature Layer"
-        self.description = "Feature Layer"
+        self.label = "Create AI Feature Layer"
+        self.description = "Create AI Feature Layer"
+        self.params = arcpy.GetParameterInfo()
+        self.canRunInBackground = False
 
     def getParameterInfo(self):
         """Define the tool parameters."""
+        
+        prompt = arcpy.Parameter(
+            displayName="Prompt",
+            name="prompt",
+            datatype="GPString",
+            parameterType="Required",
+            direction="Input",
+        )
 
-        params = None
+        prompt.description = "The prompt to generate a feature layer for. Try literally anything you can think of."
+
+        output_layer = arcpy.Parameter(
+            displayName="Output Layer",
+            name="output_layer",    
+            datatype="GPFeatureLayer",
+            parameterType="Derived",
+            direction="Output",
+        )
+
+        output_layer.description = "The output feature layer."
+
+        params = [prompt, output_layer]
         return params
 
-    def isLicensed(self):
+    def isLicensed(self):   
         """Set whether the tool is licensed to execute."""
         return True
 
@@ -37,6 +60,9 @@ class FeatureLayer(object):
         """Modify the values and properties of parameters before internal
         validation is performed.  This method is called whenever a parameter
         has been changed."""
+
+        # set output layer name to prompt with no spaces or special characters
+        parameters[1].value = parameters[0].valueAsText.replace(" ", "_").replace("-", "_").replace(".", "_")
         return
 
     def updateMessages(self, parameters):
@@ -46,6 +72,22 @@ class FeatureLayer(object):
 
     def execute(self, parameters, messages):
         """The source code of the tool."""
+        api_key = arcgispro_ai_utils.get_env_var()
+        # request geojson from AI
+        prompt = parameters[0].valueAsText
+        geojson_data = arcgispro_ai_utils.fetch_geojson(api_key, prompt)
+
+        # create geojson file
+        output_layer = parameters[1].valueAsText
+        geojson_file = f"{output_layer}.geojson"
+        with open(geojson_file, "w") as f:
+            json.dump(geojson_data, f, indent=4)
+
+        # create feature layer from geojson file
+        arcpy.conversion.JSONToFeatures(geojson_file, output_layer, geometry_type=arcgispro_ai_utils.infer_geometry_type(geojson_data))
+
+        # delete geojson file
+        os.remove(geojson_file)
         
         return
 
@@ -53,7 +95,7 @@ class FeatureLayer(object):
         """This method takes place after outputs are processed and
         added to the display."""
         return
-    
+
 class Field(object):
     def __init__(self):
         """Define the tool (tool name is the name of the class)."""
