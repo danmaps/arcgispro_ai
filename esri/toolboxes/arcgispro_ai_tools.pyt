@@ -75,20 +75,15 @@ class FeatureLayer(object):
         api_key = arcgispro_ai_utils.get_env_var()
         # request geojson from AI
         prompt = parameters[0].valueAsText
-        geojson_data = arcgispro_ai_utils.fetch_geojson(api_key, prompt, parameters[1].valueAsText)
+        output_layer_name = parameters[1].valueAsText
 
-        # create geojson file
-        output_layer = parameters[1].valueAsText
-        geojson_file = f"{output_layer}.geojson"
-        with open(geojson_file, "r") as f:
-            json.dump(geojson_data, f, indent=4)
+        # Fetch GeoJSON and create feature layer using the utility function
+        try:
+            arcgispro_ai_utils.fetch_geojson(api_key, prompt, output_layer_name)
+        except Exception as e:
+            arcpy.AddError(f"Error fetching GeoJSON: {str(e)}")
+            return
 
-        # create feature layer from geojson file
-        arcpy.conversion.JSONToFeatures(geojson_file, output_layer, geometry_type=arcgispro_ai_utils.infer_geometry_type(geojson_data))
-
-        # delete geojson file
-        os.remove(geojson_file)
-        
         return
 
     def postExecute(self, parameters):

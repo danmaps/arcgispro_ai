@@ -261,34 +261,18 @@ def map_to_json(in_map=None, output_json_path=None):
     return map_info
 
 
-def fetch_geojson(api_key, query, output_layer_name):
+def create_feature_layer_from_geojson(geojson_data, output_layer_name):
     """
-    Fetches GeoJSON data using an AI response and creates a feature layer in ArcGIS Pro.
+    Creates a feature layer in ArcGIS Pro from the provided GeoJSON data.
 
     Parameters:
-    api_key (str): API key for OpenAI.
-    query (str): User query for the AI to generate GeoJSON data.
-    output_layer_name (str): Name of the output layer to be created in ArcGIS Pro.
+    geojson_data (dict): The GeoJSON data to convert into a feature layer.
+    output_layer_name (str): The name of the output layer to be created in ArcGIS Pro.
     """
-    messages = [
-        {"role": "system", "content": "You are a helpful assistant that always only returns valid GeoJSON in response to user queries. Don't use too many vertices. Include somewhat detailed geometry and any attributes you think might be relevant. Include factual information. If you want to communicate text to the user, you may use a message property in the attributes of geometry objects. For compatibility with ArcGIS Pro, avoid multiple geometry types in the GeoJSON output. For example, don't mix points and polygons."},
-        {"role": "user", "content": query}
-    ]
-
-    try:
-        geojson_data = get_openai_response(api_key, messages)
-
-        # Add debugging to inspect the raw GeoJSON response
-        arcpy.AddMessage(f"Raw GeoJSON data: {geojson_data}")
-
-        geojson_data = json.loads(geojson_data)  # Assuming single response for simplicity
-        geometry_type = infer_geometry_type(geojson_data)
-    except Exception as e:
-        arcpy.AddError(str(e))
-        return
-
+    geometry_type = infer_geometry_type(geojson_data)
     geojson_file = os.path.join("geojson_output", f"{output_layer_name}.geojson")
-    with open(geojson_file, '') as f:
+    
+    with open(geojson_file, 'w') as f:
         json.dump(geojson_data, f)
 
     arcpy.conversion.JSONToFeatures(geojson_file, output_layer_name, geometry_type=geometry_type)
@@ -324,6 +308,32 @@ def fetch_geojson(api_key, query, output_layer_name):
             arcpy.AddError(f"Error processing layer: {str(e)}")
     else:
         arcpy.AddWarning("No active map found in the current project.")
+
+def fetch_geojson(api_key, query, output_layer_name):
+    """
+    Fetches GeoJSON data using an AI response and creates a feature layer in ArcGIS Pro.
+
+    Parameters:
+    api_key (str): API key for OpenAI.
+    query (str): User query for the AI to generate GeoJSON data.
+    output_layer_name (str): Name of the output layer to be created in ArcGIS Pro.
+    """
+    messages = [
+        {"role": "system", "content": "You are a helpful assistant that always only returns valid GeoJSON in response to user queries. Don't use too many vertices. Include somewhat detailed geometry and any attributes you think might be relevant. Include factual information. If you want to communicate text to the user, you may use a message property in the attributes of geometry objects. For compatibility with ArcGIS Pro, avoid multiple geometry types in the GeoJSON output. For example, don't mix points and polygons."},
+        {"role": "user", "content": query}
+    ]
+
+    try:
+        geojson_data = get_openai_response(api_key, messages)
+
+        # Add debugging to inspect the raw GeoJSON response
+        arcpy.AddMessage(f"Raw GeoJSON data: {geojson_data}")
+
+        geojson_data = json.loads(geojson_data)  # Assuming single response for simplicity
+        create_feature_layer_from_geojson(geojson_data, output_layer_name)  # Use the new function
+    except Exception as e:
+        arcpy.AddError(str(e))
+        return
 
 
 def expand_extent(extent, factor=1.1):
