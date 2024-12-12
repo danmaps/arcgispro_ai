@@ -270,7 +270,7 @@ def create_feature_layer_from_geojson(geojson_data, output_layer_name):
     output_layer_name (str): The name of the output layer to be created in ArcGIS Pro.
     """
     geometry_type = infer_geometry_type(geojson_data)
-    geojson_file = os.path.join("geojson_output", f"{output_layer_name}.geojson")
+    geojson_file = os.path.join(f"{output_layer_name}.geojson")
     
     with open(geojson_file, 'w') as f:
         json.dump(geojson_data, f)
@@ -327,10 +327,11 @@ def fetch_geojson(api_key, query, output_layer_name):
         geojson_data = get_openai_response(api_key, messages)
 
         # Add debugging to inspect the raw GeoJSON response
-        arcpy.AddMessage(f"Raw GeoJSON data: {geojson_data}")
+        arcpy.AddMessage(f"Raw GeoJSON data:\n{geojson_data}")
 
         geojson_data = json.loads(geojson_data)  # Assuming single response for simplicity
-        create_feature_layer_from_geojson(geojson_data, output_layer_name)  # Use the new function
+        create_feature_layer_from_geojson(geojson_data, output_layer_name)
+        return geojson_data
     except Exception as e:
         arcpy.AddError(str(e))
         return
@@ -382,11 +383,12 @@ def infer_geometry_type(geojson_data):
     geometry_types = set()
 
     if "features" not in geojson_data:
-        geometry_type = geojson_data["geometry"]["type"]
-    for feature in geojson_data["features"]:
-        geometry_type = feature["geometry"]["type"]
-        arcpy.AddMessage(f"found {geometry_type}")
-        geometry_types.add(geometry_type_map.get(geometry_type))
+        geometry_types.add(geometry_type_map.get(geojson_data["geometry"]["type"]))
+    else:
+        for feature in geojson_data["features"]:
+            geometry_type = feature["geometry"]["type"]
+            arcpy.AddMessage(f"found {geometry_type}")
+            geometry_types.add(geometry_type_map.get(geometry_type))
 
     if len(geometry_types) == 1:
         return geometry_types.pop()
@@ -480,6 +482,7 @@ def get_openai_response(api_key, messages):
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
     data = {
         "model": "gpt-4o-mini",
+        "response_format": { "type": "json_object" }, # this is very important
         "messages": messages,
         "temperature": 0.5,
         "max_tokens": 500,

@@ -73,13 +73,15 @@ class FeatureLayer(object):
     def execute(self, parameters, messages):
         """The source code of the tool."""
         api_key = arcgispro_ai_utils.get_env_var()
-        # request geojson from AI
         prompt = parameters[0].valueAsText
         output_layer_name = parameters[1].valueAsText
 
         # Fetch GeoJSON and create feature layer using the utility function
         try:
-            arcgispro_ai_utils.fetch_geojson(api_key, prompt, output_layer_name)
+            geojson_data = arcgispro_ai_utils.fetch_geojson(api_key, prompt, output_layer_name)
+            # arcpy.AddMessage(f"GeoJSON Data: {geojson_data}")  # Debug message
+            if not geojson_data:
+                raise ValueError("Received empty GeoJSON data.")
         except Exception as e:
             arcpy.AddError(f"Error fetching GeoJSON: {str(e)}")
             return
