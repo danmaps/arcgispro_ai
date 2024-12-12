@@ -288,7 +288,7 @@ def fetch_geojson(api_key, query, output_layer_name):
         return
 
     geojson_file = os.path.join("geojson_output", f"{output_layer_name}.geojson")
-    with open(geojson_file, 'w') as f:
+    with open(geojson_file, '') as f:
         json.dump(geojson_data, f)
 
     arcpy.conversion.JSONToFeatures(geojson_file, output_layer_name, geometry_type=geometry_type)
@@ -370,6 +370,9 @@ def infer_geometry_type(geojson_data):
     }
 
     geometry_types = set()
+
+    if "features" not in geojson_data:
+        geometry_type = geojson_data["geometry"]["type"]
     for feature in geojson_data["features"]:
         geometry_type = feature["geometry"]["type"]
         arcpy.AddMessage(f"found {geometry_type}")
@@ -438,31 +441,60 @@ def parse_numeric_value(text_value):
         return int(no_commas)
 
 
+def make_api_request(url, headers, data):
+    """
+    Makes a POST request to the specified API endpoint and handles retries.
+
+    Parameters:
+    url (str): The API endpoint URL.
+    headers (dict): The headers for the request.
+    data (dict): The data to be sent in the request.
+
+    Returns:
+    dict: The JSON response from the API.
+
+    Raises:
+    Exception: If the request fails after retries.
+    """
+    for _ in range(3):
+        try:
+            response = requests.post(url, headers=headers, json=data, verify=False)
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            arcpy.AddWarning(f"Retrying request due to: {e}")
+            time.sleep(1)
+    raise Exception("Failed to get response after retries")
+
 def get_openai_response(api_key, messages):
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
     data = {
         "model": "gpt-4o-mini",
         "messages": messages,
-        "temperature": 0.5,  # be more predictable, less creative
+        "temperature": 0.5,
         "max_tokens": 500,
     }
+    response = make_api_request("https://api.openai.com/v1/chat/completions", headers, data)
+    arcpy.AddMessage(f"Returning response from {data['model']}")
+    return response["choices"][0]["message"]["content"].strip()
 
-    # Retry up to 3 times if the request fails
-    for _ in range(3):
-        try:
-            response = requests.post(
-                "https://api.openai.com/v1/chat/completions",
-                headers=headers,
-                json=data,
-                verify=False,
-            )
-            response.raise_for_status()
-            arcpy.AddMessage(f"Returning response from {data['model']}")
-            return response.json()["choices"][0]["message"]["content"].strip()
-        except requests.exceptions.RequestException as e:
-            arcpy.AddWarning(f"Retrying openai response generation due to: {e}")
-            time.sleep(1)
-    raise Exception("Failed to get openai response after retries")
+def get_wolframalpha_response(api_key, query):
+    headers = {"Content-Type": "application/x-www-form-urlencoded"}
+    data = {"appid": api_key, "input": query}
+    response = make_api_request("https://api.wolframalpha.com/v2/query", headers, data)
+    
+    # Parsing the XML response
+    root = ET.fromstring(response.content)
+    if root.attrib.get('success') == 'true':
+        for pod in root.findall(".//pod[@title='Result']"):
+            for subpod in pod.findall('subpod'):
+                plaintext = subpod.find('plaintext')
+                if plaintext is not None and plaintext.text:
+                    return plaintext.text.strip()
+        arcpy.AddWarning("Result pod not found in the response")
+    else:
+        arcpy.AddWarning("Query was not successful")
+    raise Exception("Failed to get Wolfram Alpha response")
 
 def get_symphony_response(endpoint, api_key, messages):
     arcpy.AddMessage(f"getting symphony respose with {api_key}")
@@ -490,41 +522,6 @@ def get_symphony_response(endpoint, api_key, messages):
             arcpy.AddWarning(f"Retrying symphony response generation due to: {e}")
             time.sleep(1)
     raise Exception("Failed to get symphony response after retries")
-
-
-def get_wolframalpha_response(api_key, query):
-    headers = {"Content-Type": "application/x-www-form-urlencoded"}
-    data = {"appid": api_key, "input": query}
-    # data = {"appid": "AX338J-7Y83GVP84G", "input": "what is Arizona's state bird?"}
-
-    # Retry up to 3 times if the request fails
-    for _ in range(3):
-        try:
-            response = requests.post(
-                "https://api.wolframalpha.com/v2/query",
-                headers=headers,
-                data=data,
-                verify=False,
-            )
-            response.raise_for_status()
-
-            # arcpy.AddMessage("Response: " + response.text) # debug
-            # Parsing the XML response
-            root = ET.fromstring(response.content)
-            if root.attrib.get('success') == 'true':
-                for pod in root.findall(".//pod[@title='Result']"):
-                    for subpod in pod.findall('subpod'):
-                        plaintext = subpod.find('plaintext')
-                        if plaintext is not None and plaintext.text:
-                            return plaintext.text.strip()
-                arcpy.AddWarning("Result pod not found in the response")
-            else:
-                arcpy.AddWarning("Query was not successful")
-            
-        except requests.exceptions.RequestException as e:
-            arcpy.AddWarning(f"Retrying wolframalpha response generation due to: {e}")
-            time.sleep(1)
-    raise Exception("Failed to get wolframalpha response after retries")
 
 
 def generate_python(api_key, map_info, prompt, explain=False):
