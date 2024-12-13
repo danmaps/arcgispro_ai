@@ -60,9 +60,11 @@ class FeatureLayer(object):
         """Modify the values and properties of parameters before internal
         validation is performed.  This method is called whenever a parameter
         has been changed."""
+        
+        import re  # Import the regular expression module
 
-        # set output layer name to prompt with no spaces or special characters
-        parameters[1].value = parameters[0].valueAsText.replace(" ", "_").replace("-", "_").replace(".", "_")
+        # Use regex to replace unwanted characters with underscores
+        parameters[1].value = re.sub(r'[^\w]', '_', parameters[0].valueAsText)
         return
 
     def updateMessages(self, parameters):
