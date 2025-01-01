@@ -1,7 +1,14 @@
 import arcpy
 import json
 import os
-from arcgispro_ai import arcgispro_ai_utils
+from arcgispro_ai.arcgispro_ai_utils import (
+    OpenAIClient,
+    WolframAlphaClient,
+    MapUtils,
+    GeoJSONUtils,
+    FeatureLayerUtils,
+    get_env_var
+)
 
 class Toolbox:
     def __init__(self):
@@ -74,14 +81,16 @@ class FeatureLayer(object):
 
     def execute(self, parameters, messages):
         """The source code of the tool."""
-        api_key = arcgispro_ai_utils.get_env_var()
+        api_key = get_env_var()
         prompt = parameters[0].valueAsText
         output_layer_name = parameters[1].valueAsText
 
+        # Initialize OpenAI client
+        openai_client = OpenAIClient(api_key)
+
         # Fetch GeoJSON and create feature layer using the utility function
         try:
-            geojson_data = arcgispro_ai_utils.fetch_geojson(api_key, prompt, output_layer_name)
-            # arcpy.AddMessage(f"GeoJSON Data: {geojson_data}")  # Debug message
+            geojson_data = openai_client.get_geojson(prompt, output_layer_name)
             if not geojson_data:
                 raise ValueError("Received empty GeoJSON data.")
         except Exception as e:
@@ -183,15 +192,22 @@ class Field(object):
         # associate the source with the api key variable name
         api_key_name = {"OpenAI": "OPENAI_API_KEY", "Wolfram Alpha": "WOLFRAM_ALPHA_API_KEY"}[parameters[0].valueAsText]
         # Get the API key from the environment variable
-        api_key = arcgispro_ai_utils.get_env_var(api_key_name)
-        # arcpy.AddMessage(f"api_key: {api_key}")
-        arcgispro_ai_utils.add_ai_response_to_feature_layer(api_key,
-                                         parameters[0].valueAsText,
-                                         parameters[1].valueAsText,
-                                         parameters[2].valueAsText,
-                                         parameters[3].valueAsText,
-                                         parameters[4].valueAsText,
-                                         parameters[5].valueAsText)
+        api_key = get_env_var(api_key_name)
+
+        # Initialize appropriate client based on source
+        if parameters[0].valueAsText == "OpenAI":
+            client = OpenAIClient(api_key)
+        else:
+            client = WolframAlphaClient(api_key)
+
+        # Add AI response to feature layer
+        client.add_ai_response_to_feature_layer(
+            parameters[1].valueAsText,  # input layer
+            parameters[2].valueAsText,  # output layer
+            parameters[3].valueAsText,  # field name
+            parameters[4].valueAsText,  # prompt
+            parameters[5].valueAsText   # sql query
+        )
         return
 
     def postExecute(self, parameters):
@@ -257,7 +273,7 @@ class GetMapInfo(object):
         """The source code of the tool."""
         in_map = parameters[0].valueAsText
         out_json = parameters[1].valueAsText
-        map_info = arcgispro_ai_utils.map_to_json(in_map)
+        map_info = MapUtils.map_to_json(in_map)
         with open(out_json, "w") as f:
             json.dump(map_info, f, indent=4)
 
@@ -326,7 +342,10 @@ class Python(object):
         # combine map and layer data into one JSON
         # only do this if context_json is empty
         if parameters[3].valueAsText == "":
-            context_json = {"map": arcgispro_ai_utils.map_to_json(), "layers": arcgispro_ai_utils.get_layer_info(layers)}
+            context_json = {
+                "map": MapUtils.map_to_json(), 
+                "layers": FeatureLayerUtils.get_layer_info(layers)
+            }
             parameters[3].value = json.dumps(context_json, indent=2)
         return
 
@@ -338,7 +357,7 @@ class Python(object):
     def execute(self, parameters, messages):
 
         # Get the API key from the environment variable
-        api_key = arcgispro_ai_utils.get_env_var()
+        api_key = get_env_var()
         # api_key = arcgispro_ai_utils.get_SymphonyGIS_api_key()
         layers = parameters[0].values # feature layer (multiple)
         prompt = parameters[1].value  # string
@@ -351,8 +370,7 @@ class Python(object):
         # arcpy.AddMessage("prompt: {}".format(prompt))
         # arcpy.AddMessage("eval: {}".format(eval))
 
-        code_snippet = arcgispro_ai_utils.generate_python(
-            api_key,
+        code_snippet = openai_client.generate_python(
             derived_context,
             prompt.strip(),
         )
@@ -432,37 +450,8 @@ class ConvertTextToNumeric(object):
 
     def execute(self, parameters, messages):
         # Get the API key from the environment variable
-        api_key = arcgispro_ai_utils.get_env_var() # default is openai api key
-
-        in_layer = parameters[0].values # feature layer
-        field = parameters[1].value  # field
-
-        # infer numeric type
-            # shortint — Short integers (16-bit)
-            # longint — Long integers (32-bit)
-            # bigint — Big integers (64-bit)
-            # float — Single-precision (32-bit) floating point numbers
-            # double — Double-precision (64-bit) floating point numbers
-        
-        # store normalized values in new field like f"{field_name}_{type}"
-
-        '''
-        Population data (2020)
-        Wolfram             GPT-4             GPT-4_longint
-        7.178 million       7,151,502         7,151,502
-        39.5 million        39.24 million     39,240,000
-        5.784 million       5,758,736         5,758,736
-        1.848 million       1,839,106         1,839,106
-        1.961 million       1,961,504         1,961,504
-        3.114 million       3,138,259         3,138,259
-        2.118 million       2,117,522         2,117,522
-        4.242 million       4.2 million       4,200,000
-        29.22 million       29,145,505        29,145,505
-        3.282 million       3,205,958         3,205,958
-        '''
-
-        # Get the API key from the environment variable
-        api_key = arcgispro_ai_utils.get_env_var()  # default is OpenAI API key
+        api_key = get_env_var()  # default is OpenAI API key
+        openai_client = OpenAIClient(api_key)
 
         in_layer = parameters[0].valueAsText  # feature layer
         field = parameters[1].valueAsText  # field
@@ -474,7 +463,7 @@ class ConvertTextToNumeric(object):
                 field_values.append(row[0])
 
         # Convert the entire series using OpenAI API
-        converted_values = self.convert_series_to_numeric(field_values, api_key)
+        converted_values = openai_client.convert_series_to_numeric(field_values)
 
         # Add a new field to store the converted numeric values
         field_name_new = f"{field}_numeric"
