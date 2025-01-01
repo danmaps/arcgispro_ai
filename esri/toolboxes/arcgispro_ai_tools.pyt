@@ -647,6 +647,47 @@ class ConvertTextToNumeric(object):
 
     def getParameterInfo(self):
         """Define the tool parameters."""
+        source = arcpy.Parameter(
+            displayName="Source",
+            name="source",
+            datatype="GPString",
+            parameterType="Required",
+            direction="Input",
+        )
+        source.filter.type = "ValueList"
+        source.filter.list = ["OpenAI", "Azure OpenAI", "Claude", "DeepSeek", "Local LLM"]
+        source.value = "OpenAI"
+
+        model = arcpy.Parameter(
+            displayName="Model",
+            name="model",
+            datatype="GPString",
+            parameterType="Optional",
+            direction="Input",
+        )
+        model.value = ""
+        model.enabled = True
+
+        endpoint = arcpy.Parameter(
+            displayName="Endpoint",
+            name="endpoint",
+            datatype="GPString",
+            parameterType="Optional",
+            direction="Input",
+        )
+        endpoint.value = ""
+        endpoint.enabled = False
+
+        deployment = arcpy.Parameter(
+            displayName="Deployment Name",
+            name="deployment",
+            datatype="GPString",
+            parameterType="Optional",
+            direction="Input",
+        )
+        deployment.value = ""
+        deployment.enabled = False
+
         in_layer = arcpy.Parameter(
             displayName="Input Layer",
             name="in_layer",
@@ -663,10 +704,7 @@ class ConvertTextToNumeric(object):
             direction="Input",
         )
 
-        # field type must be text
-        # field must be a field in the input layer
-
-        params = [in_layer,field]
+        params = [source, model, endpoint, deployment, in_layer, field]
         return params
 
     def isLicensed(self):
@@ -677,6 +715,32 @@ class ConvertTextToNumeric(object):
         """Modify the values and properties of parameters before internal
         validation is performed.  This method is called whenever a parameter
         has been changed."""
+        source = parameters[0].value
+        if source == "Azure OpenAI":
+            parameters[1].enabled = True
+            parameters[2].enabled = True
+            parameters[3].enabled = True
+            parameters[1].value = "gpt-4"
+        elif source == "OpenAI":
+            parameters[1].enabled = True
+            parameters[2].enabled = False
+            parameters[3].enabled = False
+            parameters[1].value = "gpt-4"
+        elif source == "Claude":
+            parameters[1].enabled = True
+            parameters[2].enabled = False
+            parameters[3].enabled = False
+            parameters[1].value = "claude-3-opus-20240229"
+        elif source == "DeepSeek":
+            parameters[1].enabled = True
+            parameters[2].enabled = False
+            parameters[3].enabled = False
+            parameters[1].value = "deepseek-chat"
+        elif source == "Local LLM":
+            parameters[1].enabled = False
+            parameters[2].enabled = True
+            parameters[3].enabled = False
+            parameters[2].value = "http://localhost:8000"
         return
 
     def updateMessages(self, parameters):
@@ -685,12 +749,22 @@ class ConvertTextToNumeric(object):
         return
 
     def execute(self, parameters, messages):
-        # Get the API key from the environment variable
-        api_key = get_env_var()  # default is OpenAI API key
-        openai_client = OpenAIClient(api_key)
+        source = parameters[0].valueAsText
+        model = parameters[1].valueAsText
+        endpoint = parameters[2].valueAsText
+        deployment = parameters[3].valueAsText
+        in_layer = parameters[4].valueAsText
+        field = parameters[5].valueAsText
 
-        in_layer = parameters[0].valueAsText  # feature layer
-        field = parameters[1].valueAsText  # field
+        # Get the appropriate API key
+        api_key_map = {
+            "OpenAI": "OPENAI_API_KEY",
+            "Azure OpenAI": "AZURE_OPENAI_API_KEY",
+            "Claude": "ANTHROPIC_API_KEY",
+            "DeepSeek": "DEEPSEEK_API_KEY",
+            "Local LLM": None
+        }
+        api_key = get_env_var(api_key_map.get(source, "OPENAI_API_KEY"))
 
         # Get the field values
         field_values = []
@@ -698,8 +772,16 @@ class ConvertTextToNumeric(object):
             for row in cursor:
                 field_values.append(row[0])
 
-        # Convert the entire series using OpenAI API
-        converted_values = openai_client.convert_series_to_numeric(field_values)
+        # Convert the entire series using the selected AI provider
+        kwargs = {}
+        if model:
+            kwargs["model"] = model
+        if endpoint:
+            kwargs["endpoint"] = endpoint
+        if deployment:
+            kwargs["deployment_name"] = deployment
+
+        converted_values = get_client(api_key, source, **kwargs).convert_series_to_numeric(field_values)
 
         # Add a new field to store the converted numeric values
         field_name_new = f"{field}_numeric"
