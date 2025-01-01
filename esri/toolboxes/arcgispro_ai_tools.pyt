@@ -14,6 +14,68 @@ from arcgispro_ai.core.api_clients import (
     get_env_var
 )
 
+def update_model_parameters(source: str, parameters: list, current_model: str = None) -> None:
+    """Update model parameters based on the selected source.
+    
+    Args:
+        source: The selected AI source (e.g., 'OpenAI', 'Azure OpenAI', etc.)
+        parameters: List of arcpy.Parameter objects [source, model, endpoint, deployment]
+        current_model: Currently selected model, if any
+    """
+    model_configs = {
+        "Azure OpenAI": {
+            "models": ["gpt-4", "gpt-4-turbo-preview", "gpt-3.5-turbo"],
+            "default": "gpt-4",
+            "endpoint": True,
+            "deployment": True
+        },
+        "OpenAI": {
+            "models": ["gpt-4o-mini", "gpt-3.5-turbo", "gpt-4", "gpt-4-turbo-preview"],
+            "default": "gpt-4o-mini",
+            "endpoint": False,
+            "deployment": False
+        },
+        "Claude": {
+            "models": ["claude-3-opus-20240229", "claude-3-sonnet-20240229"],
+            "default": "claude-3-opus-20240229",
+            "endpoint": False,
+            "deployment": False
+        },
+        "DeepSeek": {
+            "models": ["deepseek-chat", "deepseek-coder"],
+            "default": "deepseek-chat",
+            "endpoint": False,
+            "deployment": False
+        },
+        "Local LLM": {
+            "models": [],
+            "default": None,
+            "endpoint": True,
+            "deployment": False,
+            "endpoint_value": "http://localhost:8000"
+        }
+    }
+
+    config = model_configs.get(source, {})
+    if not config:
+        return
+
+    # Model parameter
+    parameters[1].enabled = bool(config["models"])
+    if config["models"]:
+        parameters[1].filter.type = "ValueList"
+        parameters[1].filter.list = config["models"]
+        if not current_model or current_model not in config["models"]:
+            parameters[1].value = config["default"]
+
+    # Endpoint parameter
+    parameters[2].enabled = config["endpoint"]
+    if config.get("endpoint_value"):
+        parameters[2].value = config["endpoint_value"]
+
+    # Deployment parameter
+    parameters[3].enabled = config["deployment"]
+
 class Toolbox:
     def __init__(self):
         """Define the toolbox (the name of the toolbox is the name of the
@@ -111,43 +173,7 @@ class FeatureLayer(object):
         source = parameters[0].value
         current_model = parameters[1].value
 
-        if source == "Azure OpenAI":
-            parameters[1].enabled = True
-            parameters[2].enabled = True
-            parameters[3].enabled = True
-            parameters[1].filter.type = "ValueList"
-            parameters[1].filter.list = ["gpt-4", "gpt-4-turbo-preview", "gpt-3.5-turbo"]
-            if not current_model or current_model not in parameters[1].filter.list:
-                parameters[1].value = "gpt-4"
-        elif source == "OpenAI":
-            parameters[1].enabled = True
-            parameters[2].enabled = False
-            parameters[3].enabled = False
-            parameters[1].filter.type = "ValueList"
-            parameters[1].filter.list = ["gpt-3.5-turbo", "gpt-4", "gpt-4-turbo-preview"]
-            if not current_model or current_model not in parameters[1].filter.list:
-                parameters[1].value = "gpt-3.5-turbo"
-        elif source == "Claude":
-            parameters[1].enabled = True
-            parameters[2].enabled = False
-            parameters[3].enabled = False
-            parameters[1].filter.type = "ValueList"
-            parameters[1].filter.list = ["claude-3-opus-20240229", "claude-3-sonnet-20240229"]
-            if not current_model or current_model not in parameters[1].filter.list:
-                parameters[1].value = "claude-3-opus-20240229"
-        elif source == "DeepSeek":
-            parameters[1].enabled = True
-            parameters[2].enabled = False
-            parameters[3].enabled = False
-            parameters[1].filter.type = "ValueList"
-            parameters[1].filter.list = ["deepseek-chat", "deepseek-coder"]
-            if not current_model or current_model not in parameters[1].filter.list:
-                parameters[1].value = "deepseek-chat"
-        elif source == "Local LLM":
-            parameters[1].enabled = False
-            parameters[2].enabled = True
-            parameters[3].enabled = False
-            parameters[2].value = "http://localhost:8000"
+        update_model_parameters(source, parameters, current_model)
 
         import re
         parameters[5].value = re.sub(r'[^\w]', '_', parameters[4].valueAsText)
@@ -305,44 +331,9 @@ class Field(object):
         source = parameters[0].value
         current_model = parameters[1].value
 
-        if source == "Azure OpenAI":
-            parameters[1].enabled = True
-            parameters[2].enabled = True
-            parameters[3].enabled = True
-            parameters[1].filter.type = "ValueList"
-            parameters[1].filter.list = ["gpt-4", "gpt-4-turbo-preview", "gpt-3.5-turbo"]
-            if not current_model or current_model not in parameters[1].filter.list:
-                parameters[1].value = "gpt-4"
-        elif source == "OpenAI":
-            parameters[1].enabled = True
-            parameters[2].enabled = False
-            parameters[3].enabled = False
-            parameters[1].filter.type = "ValueList"
-            parameters[1].filter.list = ["gpt-3.5-turbo", "gpt-4", "gpt-4-turbo-preview"]
-            if not current_model or current_model not in parameters[1].filter.list:
-                parameters[1].value = "gpt-3.5-turbo"
-        elif source == "Claude":
-            parameters[1].enabled = True
-            parameters[2].enabled = False
-            parameters[3].enabled = False
-            parameters[1].filter.type = "ValueList"
-            parameters[1].filter.list = ["claude-3-opus-20240229", "claude-3-sonnet-20240229"]
-            if not current_model or current_model not in parameters[1].filter.list:
-                parameters[1].value = "claude-3-opus-20240229"
-        elif source == "DeepSeek":
-            parameters[1].enabled = True
-            parameters[2].enabled = False
-            parameters[3].enabled = False
-            parameters[1].filter.type = "ValueList"
-            parameters[1].filter.list = ["deepseek-chat", "deepseek-coder"]
-            if not current_model or current_model not in parameters[1].filter.list:
-                parameters[1].value = "deepseek-chat"
-        elif source == "Local LLM":
-            parameters[1].enabled = False
-            parameters[2].enabled = True
-            parameters[3].enabled = False
-            parameters[2].value = "http://localhost:8000"
-        elif source == "Wolfram Alpha":
+        update_model_parameters(source, parameters, current_model)
+
+        if source == "Wolfram Alpha":
             parameters[1].enabled = False
             parameters[2].enabled = False
             parameters[3].enabled = False
@@ -570,43 +561,7 @@ class Python(object):
         source = parameters[0].value
         current_model = parameters[1].value
 
-        if source == "Azure OpenAI":
-            parameters[1].enabled = True
-            parameters[2].enabled = True
-            parameters[3].enabled = True
-            parameters[1].filter.type = "ValueList"
-            parameters[1].filter.list = ["gpt-4o-mini", "gpt-4o", "gpt-4-turbo-preview", "gpt-3.5-turbo"]
-            if not current_model or current_model not in parameters[1].filter.list:
-                parameters[1].value = "gpt-4o-mini"
-        elif source == "OpenAI":
-            parameters[1].enabled = True
-            parameters[2].enabled = False
-            parameters[3].enabled = False
-            parameters[1].filter.type = "ValueList"
-            parameters[1].filter.list = ["gpt-4o-mini", "gpt-3.5-turbo", "gpt-4", "gpt-4-turbo-preview"]
-            if not current_model or current_model not in parameters[1].filter.list:
-                parameters[1].value = "gpt-3.5-turbo"
-        elif source == "Claude":
-            parameters[1].enabled = True
-            parameters[2].enabled = False
-            parameters[3].enabled = False
-            parameters[1].filter.type = "ValueList"
-            parameters[1].filter.list = ["claude-3-opus-20240229", "claude-3-sonnet-20240229"]
-            if not current_model or current_model not in parameters[1].filter.list:
-                parameters[1].value = "claude-3-opus-20240229"
-        elif source == "DeepSeek":
-            parameters[1].enabled = True
-            parameters[2].enabled = False
-            parameters[3].enabled = False
-            parameters[1].filter.type = "ValueList"
-            parameters[1].filter.list = ["deepseek-chat", "deepseek-coder"]
-            if not current_model or current_model not in parameters[1].filter.list:
-                parameters[1].value = "deepseek-chat"
-        elif source == "Local LLM":
-            parameters[1].enabled = False
-            parameters[2].enabled = True
-            parameters[3].enabled = False
-            parameters[2].value = "http://localhost:8000"
+        update_model_parameters(source, parameters, current_model)
 
         layers = parameters[4].values
         # combine map and layer data into one JSON
@@ -788,44 +743,7 @@ class ConvertTextToNumeric(object):
         source = parameters[0].value
         current_model = parameters[1].value
 
-        if source == "Azure OpenAI":
-            parameters[1].enabled = True
-            parameters[2].enabled = True
-            parameters[3].enabled = True
-            parameters[1].filter.type = "ValueList"
-            parameters[1].filter.list = ["gpt-4", "gpt-4-turbo-preview", "gpt-3.5-turbo"]
-            if not current_model or current_model not in parameters[1].filter.list:
-                parameters[1].value = "gpt-4"
-        elif source == "OpenAI":
-            parameters[1].enabled = True
-            parameters[2].enabled = False
-            parameters[3].enabled = False
-            parameters[1].filter.type = "ValueList"
-            parameters[1].filter.list = ["gpt-3.5-turbo", "gpt-4", "gpt-4-turbo-preview"]
-            if not current_model or current_model not in parameters[1].filter.list:
-                parameters[1].value = "gpt-3.5-turbo"
-        elif source == "Claude":
-            parameters[1].enabled = True
-            parameters[2].enabled = False
-            parameters[3].enabled = False
-            parameters[1].filter.type = "ValueList"
-            parameters[1].filter.list = ["claude-3-opus-20240229", "claude-3-sonnet-20240229"]
-            if not current_model or current_model not in parameters[1].filter.list:
-                parameters[1].value = "claude-3-opus-20240229"
-        elif source == "DeepSeek":
-            parameters[1].enabled = True
-            parameters[2].enabled = False
-            parameters[3].enabled = False
-            parameters[1].filter.type = "ValueList"
-            parameters[1].filter.list = ["deepseek-chat", "deepseek-coder"]
-            if not current_model or current_model not in parameters[1].filter.list:
-                parameters[1].value = "deepseek-chat"
-        elif source == "Local LLM":
-            parameters[1].enabled = False
-            parameters[2].enabled = True
-            parameters[3].enabled = False
-            parameters[2].value = "http://localhost:8000"
-
+        update_model_parameters(source, parameters, current_model)
         return
 
     def updateMessages(self, parameters):

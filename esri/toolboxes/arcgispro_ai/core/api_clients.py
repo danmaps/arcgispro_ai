@@ -26,17 +26,17 @@ class APIClient:
     def make_request(self, endpoint: str, data: Dict[str, Any], max_retries: int = 3) -> Dict[str, Any]:
         """Make an API request with retry logic."""
         url = f"{self.base_url}/{endpoint}"
-        log_message(f"Making request to: {url}")
+        # log_message(f"Making request to: {url}")
         for attempt in range(max_retries):
             try:
-                log_message(f"\nAttempt {attempt + 1} - Making request to: {url}")
-                log_message(f"Request data: {json.dumps(data, indent=2)}")
+                # log_message(f"\nAttempt {attempt + 1} - Making request to: {url}")
+                # log_message(f"Request data: {json.dumps(data, indent=2)}")
                 
                 response = requests.post(url, headers=self.headers, json=data, verify=False)
                 
-                log_message(f"Response status: {response.status_code}")
-                if response.status_code != 200:
-                    log_message(f"Error response: {response.text}")
+                # log_message(f"Response status: {response.status_code}")
+                # if response.status_code != 200:
+                #     log_message(f"Error response: {response.text}")
                 
                 response.raise_for_status()
                 return response.json()
@@ -47,7 +47,7 @@ class APIClient:
                     else:
                         error_detail = str(e)
                     raise Exception(f"Failed to get response after {max_retries} retries. Status: {e.response.status_code if hasattr(e, 'response') else 'Unknown'}, Error: {error_detail}")
-                log_message(f"Retrying request due to: {e}")
+                # log_message(f"Retrying request due to: {e}")
                 time.sleep(2 ** attempt)  # Exponential backoff
 
 class OpenAIClient(APIClient):
@@ -55,7 +55,7 @@ class OpenAIClient(APIClient):
         super().__init__(api_key, "https://api.openai.com/v1")
         self.model = model
 
-        log_message(f"OpenAI Client initialized with model: {self.model}")
+        # log_message(f"OpenAI Client initialized with model: {self.model}")
 
     def get_completion(self, messages: List[Dict[str, str]], response_format: Optional[str] = None) -> str:
         """Get completion from OpenAI API."""
