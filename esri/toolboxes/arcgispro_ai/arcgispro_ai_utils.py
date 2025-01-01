@@ -33,9 +33,9 @@ class APIClient:
                 time.sleep(1)
 
 class OpenAIClient(APIClient):
-    def __init__(self, api_key: str):
+    def __init__(self, api_key: str, model: str = "gpt-4"):
         super().__init__(api_key, "https://api.openai.com/v1")
-        self.model = "gpt-4o-mini"
+        self.model = model
 
     def get_completion(self, messages: List[Dict[str, str]], response_format: Optional[str] = None) -> str:
         """Get completion from OpenAI API."""
@@ -50,6 +50,88 @@ class OpenAIClient(APIClient):
             data["response_format"] = {"type": "json_object"}
         
         response = self.make_request("chat/completions", data)
+        return response["choices"][0]["message"]["content"].strip()
+
+class AzureOpenAIClient(APIClient):
+    def __init__(self, api_key: str, endpoint: str, deployment_name: str):
+        super().__init__(api_key, endpoint)
+        self.deployment_name = deployment_name
+        self.headers["api-key"] = api_key
+
+    def get_completion(self, messages: List[Dict[str, str]], response_format: Optional[str] = None) -> str:
+        """Get completion from Azure OpenAI API."""
+        data = {
+            "messages": messages,
+            "temperature": 0.5,
+            "max_tokens": 5000,
+        }
+        
+        if response_format == "json_object":
+            data["response_format"] = {"type": "json_object"}
+        
+        response = self.make_request(f"openai/deployments/{self.deployment_name}/chat/completions?api-version=2023-12-01-preview", data)
+        return response["choices"][0]["message"]["content"].strip()
+
+class ClaudeClient(APIClient):
+    def __init__(self, api_key: str, model: str = "claude-3-opus-20240229"):
+        super().__init__(api_key, "https://api.anthropic.com/v1")
+        self.model = model
+        self.headers["anthropic-version"] = "2023-06-01"
+        self.headers["x-api-key"] = api_key
+
+    def get_completion(self, messages: List[Dict[str, str]], response_format: Optional[str] = None) -> str:
+        """Get completion from Claude API."""
+        data = {
+            "model": self.model,
+            "messages": [{"role": m["role"], "content": m["content"]} for m in messages],
+            "temperature": 0.5,
+            "max_tokens": 5000,
+        }
+        
+        if response_format == "json_object":
+            data["response_format"] = {"type": "json"}
+        
+        response = self.make_request("messages", data)
+        return response["content"][0]["text"].strip()
+
+class DeepSeekClient(APIClient):
+    def __init__(self, api_key: str, model: str = "deepseek-chat"):
+        super().__init__(api_key, "https://api.deepseek.com/v1")
+        self.model = model
+
+    def get_completion(self, messages: List[Dict[str, str]], response_format: Optional[str] = None) -> str:
+        """Get completion from DeepSeek API."""
+        data = {
+            "model": self.model,
+            "messages": messages,
+            "temperature": 0.5,
+            "max_tokens": 5000,
+        }
+        
+        if response_format == "json_object":
+            data["response_format"] = {"type": "json_object"}
+        
+        response = self.make_request("chat/completions", data)
+        return response["choices"][0]["message"]["content"].strip()
+
+class LocalLLMClient(APIClient):
+    def __init__(self, api_key: str = "", base_url: str = "http://localhost:8000"):
+        super().__init__(api_key, base_url)
+        # Local LLMs typically don't need auth
+        self.headers = {"Content-Type": "application/json"}
+
+    def get_completion(self, messages: List[Dict[str, str]], response_format: Optional[str] = None) -> str:
+        """Get completion from local LLM API."""
+        data = {
+            "messages": messages,
+            "temperature": 0.5,
+            "max_tokens": 5000,
+        }
+        
+        if response_format == "json_object":
+            data["response_format"] = {"type": "json_object"}
+        
+        response = self.make_request("v1/chat/completions", data)
         return response["choices"][0]["message"]["content"].strip()
 
 class WolframAlphaClient(APIClient):
@@ -315,9 +397,29 @@ def create_feature_layer_from_geojson(geojson_data: Dict[str, Any], output_layer
     else:
         arcpy.AddWarning("No active map found in the current project.")
 
-def fetch_geojson(api_key: str, query: str, output_layer_name: str) -> Optional[Dict[str, Any]]:
+def get_client(source: str, api_key: str, **kwargs) -> APIClient:
+    """Get the appropriate AI client based on the source."""
+    clients = {
+        "OpenAI": lambda: OpenAIClient(api_key, model=kwargs.get('model', 'gpt-4')),
+        "Azure OpenAI": lambda: AzureOpenAIClient(
+            api_key,
+            kwargs.get('endpoint', ''),
+            kwargs.get('deployment_name', '')
+        ),
+        "Claude": lambda: ClaudeClient(api_key, model=kwargs.get('model', 'claude-3-opus-20240229')),
+        "DeepSeek": lambda: DeepSeekClient(api_key, model=kwargs.get('model', 'deepseek-chat')),
+        "Local LLM": lambda: LocalLLMClient(base_url=kwargs.get('base_url', 'http://localhost:8000')),
+        "Wolfram Alpha": lambda: WolframAlphaClient(api_key)
+    }
+    
+    if source not in clients:
+        raise ValueError(f"Unsupported AI provider: {source}")
+    
+    return clients[source]()
+
+def fetch_geojson(api_key: str, query: str, output_layer_name: str, source: str = "OpenAI", **kwargs) -> Optional[Dict[str, Any]]:
     """Fetch GeoJSON data using AI response and create a feature layer."""
-    openai_client = OpenAIClient(api_key)
+    client = get_client(source, api_key, **kwargs)
     messages = [
         {
             "role": "system",
@@ -331,7 +433,7 @@ def fetch_geojson(api_key: str, query: str, output_layer_name: str) -> Optional[
     ]
 
     try:
-        geojson_str = openai_client.get_completion(messages, response_format="json_object")
+        geojson_str = client.get_completion(messages, response_format="json_object")
         arcpy.AddMessage(f"Raw GeoJSON data:\n{geojson_str}")
         
         geojson_data = json.loads(geojson_str)
@@ -341,12 +443,12 @@ def fetch_geojson(api_key: str, query: str, output_layer_name: str) -> Optional[
         arcpy.AddError(str(e))
         return None
 
-def generate_python(api_key: str, map_info: Dict[str, Any], prompt: str, explain: bool = False) -> Optional[str]:
+def generate_python(api_key: str, map_info: Dict[str, Any], prompt: str, source: str = "OpenAI", explain: bool = False, **kwargs) -> Optional[str]:
     """Generate Python code using AI response."""
     if not prompt:
         return None
 
-    openai_client = OpenAIClient(api_key)
+    client = get_client(source, api_key, **kwargs)
     
     # Load prompts from config
     current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -360,7 +462,7 @@ def generate_python(api_key: str, map_info: Dict[str, Any], prompt: str, explain
     ]
 
     try:
-        code_snippet = openai_client.get_completion(messages)
+        code_snippet = client.get_completion(messages)
         
         def trim_code_block(code_block: str) -> str:
             """Remove language identifier and triple backticks from code block."""
@@ -386,7 +488,8 @@ def add_ai_response_to_feature_layer(
     out_layer: Optional[str],
     field_name: str,
     prompt_template: str,
-    sql_query: Optional[str] = None
+    sql_query: Optional[str] = None,
+    **kwargs
 ) -> None:
     """Enrich feature layer with AI-generated responses."""
     if out_layer:
@@ -430,20 +533,20 @@ def add_ai_response_to_feature_layer(
             arcpy.AddMessage("prompts_dict is empty.")
 
         # Get AI responses
+        client = get_client(source, api_key, **kwargs)
         responses_dict = {}
-        if source == "OpenAI":
-            openai_client = OpenAIClient(api_key)
+        
+        if source == "Wolfram Alpha":
+            for oid, prompt in prompts_dict.items():
+                responses_dict[oid] = client.get_result(prompt)
+        else:
             role = "Respond without any other information, not even a complete sentence. No need for any other decoration or verbage."
             for oid, prompt in prompts_dict.items():
                 messages = [
                     {"role": "system", "content": role},
                     {"role": "user", "content": prompt}
                 ]
-                responses_dict[oid] = openai_client.get_completion(messages)
-        elif source == "Wolfram Alpha":
-            wolfram_client = WolframAlphaClient(api_key)
-            for oid, prompt in prompts_dict.items():
-                responses_dict[oid] = wolfram_client.get_result(prompt)
+                responses_dict[oid] = client.get_completion(messages)
 
         # Update feature class with responses
         with arcpy.da.UpdateCursor(feature_class, [oid_field_name, field_name]) as cursor:

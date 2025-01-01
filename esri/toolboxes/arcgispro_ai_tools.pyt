@@ -2,11 +2,10 @@ import arcpy
 import json
 import os
 from arcgispro_ai.arcgispro_ai_utils import (
-    OpenAIClient,
-    WolframAlphaClient,
-    MapUtils,
-    GeoJSONUtils,
-    FeatureLayerUtils,
+    get_client,
+    fetch_geojson,
+    generate_python,
+    add_ai_response_to_feature_layer,
     get_env_var
 )
 
@@ -24,7 +23,6 @@ class Toolbox:
                       Python,
                       ConvertTextToNumeric]
 
-
 class FeatureLayer(object):
     def __init__(self):
         """Define the tool (tool name is the name of the class)."""
@@ -35,7 +33,47 @@ class FeatureLayer(object):
 
     def getParameterInfo(self):
         """Define the tool parameters."""
-        
+        source = arcpy.Parameter(
+            displayName="Source",
+            name="source",
+            datatype="GPString",
+            parameterType="Required",
+            direction="Input",
+        )
+        source.filter.type = "ValueList"
+        source.filter.list = ["OpenAI", "Azure OpenAI", "Claude", "DeepSeek", "Local LLM"]
+        source.value = "OpenAI"
+
+        model = arcpy.Parameter(
+            displayName="Model",
+            name="model",
+            datatype="GPString",
+            parameterType="Optional",
+            direction="Input",
+        )
+        model.value = ""
+        model.enabled = True
+
+        endpoint = arcpy.Parameter(
+            displayName="Endpoint",
+            name="endpoint",
+            datatype="GPString",
+            parameterType="Optional",
+            direction="Input",
+        )
+        endpoint.value = ""
+        endpoint.enabled = False
+
+        deployment = arcpy.Parameter(
+            displayName="Deployment Name",
+            name="deployment",
+            datatype="GPString",
+            parameterType="Optional",
+            direction="Input",
+        )
+        deployment.value = ""
+        deployment.enabled = False
+
         prompt = arcpy.Parameter(
             displayName="Prompt",
             name="prompt",
@@ -43,7 +81,6 @@ class FeatureLayer(object):
             parameterType="Required",
             direction="Input",
         )
-
         prompt.description = "The prompt to generate a feature layer for. Try literally anything you can think of."
 
         output_layer = arcpy.Parameter(
@@ -53,10 +90,9 @@ class FeatureLayer(object):
             parameterType="Derived",
             direction="Output",
         )
-
         output_layer.description = "The output feature layer."
 
-        params = [prompt, output_layer]
+        params = [source, model, endpoint, deployment, prompt, output_layer]
         return params
 
     def isLicensed(self):   
@@ -67,11 +103,35 @@ class FeatureLayer(object):
         """Modify the values and properties of parameters before internal
         validation is performed.  This method is called whenever a parameter
         has been changed."""
-        
-        import re  # Import the regular expression module
+        source = parameters[0].value
+        if source == "Azure OpenAI":
+            parameters[1].enabled = True
+            parameters[2].enabled = True
+            parameters[3].enabled = True
+            parameters[1].value = "gpt-4"
+        elif source == "OpenAI":
+            parameters[1].enabled = True
+            parameters[2].enabled = False
+            parameters[3].enabled = False
+            parameters[1].value = "gpt-4"
+        elif source == "Claude":
+            parameters[1].enabled = True
+            parameters[2].enabled = False
+            parameters[3].enabled = False
+            parameters[1].value = "claude-3-opus-20240229"
+        elif source == "DeepSeek":
+            parameters[1].enabled = True
+            parameters[2].enabled = False
+            parameters[3].enabled = False
+            parameters[1].value = "deepseek-chat"
+        elif source == "Local LLM":
+            parameters[1].enabled = False
+            parameters[2].enabled = True
+            parameters[3].enabled = False
+            parameters[2].value = "http://localhost:8000"
 
-        # Use regex to replace unwanted characters with underscores
-        parameters[1].value = re.sub(r'[^\w]', '_', parameters[0].valueAsText)
+        import re
+        parameters[5].value = re.sub(r'[^\w]', '_', parameters[4].valueAsText)
         return
 
     def updateMessages(self, parameters):
@@ -81,16 +141,34 @@ class FeatureLayer(object):
 
     def execute(self, parameters, messages):
         """The source code of the tool."""
-        api_key = get_env_var()
-        prompt = parameters[0].valueAsText
-        output_layer_name = parameters[1].valueAsText
+        source = parameters[0].valueAsText
+        model = parameters[1].valueAsText
+        endpoint = parameters[2].valueAsText
+        deployment = parameters[3].valueAsText
+        prompt = parameters[4].valueAsText
+        output_layer_name = parameters[5].valueAsText
 
-        # Initialize OpenAI client
-        openai_client = OpenAIClient(api_key)
+        # Get the appropriate API key
+        api_key_map = {
+            "OpenAI": "OPENAI_API_KEY",
+            "Azure OpenAI": "AZURE_OPENAI_API_KEY",
+            "Claude": "ANTHROPIC_API_KEY",
+            "DeepSeek": "DEEPSEEK_API_KEY",
+            "Local LLM": None
+        }
+        api_key = get_env_var(api_key_map.get(source, "OPENAI_API_KEY"))
 
-        # Fetch GeoJSON and create feature layer using the utility function
+        # Fetch GeoJSON and create feature layer
         try:
-            geojson_data = openai_client.get_geojson(prompt, output_layer_name)
+            kwargs = {}
+            if model:
+                kwargs["model"] = model
+            if endpoint:
+                kwargs["endpoint"] = endpoint
+            if deployment:
+                kwargs["deployment_name"] = deployment
+
+            geojson_data = fetch_geojson(api_key, prompt, output_layer_name, source, **kwargs)
             if not geojson_data:
                 raise ValueError("Received empty GeoJSON data.")
         except Exception as e:
@@ -108,7 +186,7 @@ class Field(object):
     def __init__(self):
         """Define the tool (tool name is the name of the class)."""
         self.label = "Field"
-        self.description = "Adds a new attribute field to feature layers with AI-generated text. It uses the OpenAI API to create responses based on user-defined prompts that can reference existing attributes. Users provide the input layer, output layer, field name, prompt template, and an optional SQL query. The tool enriches datasets but may produce inconsistent or unexpected AI responses, reflecting the nature of AI text generation."
+        self.description = "Adds a new attribute field to feature layers with AI-generated text. It uses AI APIs to create responses based on user-defined prompts that can reference existing attributes."
         self.getParameterInfo()
 
     def getParameterInfo(self):
@@ -119,12 +197,40 @@ class Field(object):
             datatype="GPString",
             parameterType="Required",
             direction="Input",
-            # multiValue=True
         )
-        # source.controlCLSID = '{172840BF-D385-4F83-80E8-2AC3B79EB0E0}'
         source.filter.type = "ValueList"
-        source.filter.list = ["OpenAI", "Wolfram Alpha"]
+        source.filter.list = ["OpenAI", "Azure OpenAI", "Claude", "DeepSeek", "Local LLM", "Wolfram Alpha"]
         source.value = "OpenAI"
+
+        model = arcpy.Parameter(
+            displayName="Model",
+            name="model",
+            datatype="GPString",
+            parameterType="Optional",
+            direction="Input",
+        )
+        model.value = ""
+        model.enabled = True
+
+        endpoint = arcpy.Parameter(
+            displayName="Endpoint",
+            name="endpoint",
+            datatype="GPString",
+            parameterType="Optional",
+            direction="Input",
+        )
+        endpoint.value = ""
+        endpoint.enabled = False
+
+        deployment = arcpy.Parameter(
+            displayName="Deployment Name",
+            name="deployment",
+            datatype="GPString",
+            parameterType="Optional",
+            direction="Input",
+        )
+        deployment.value = ""
+        deployment.enabled = False
 
         in_layer = arcpy.Parameter(
             displayName="Input Layer",
@@ -166,8 +272,7 @@ class Field(object):
             direction="Input"
         )
 
-        params = [source, in_layer, out_layer, field_name, prompt, sql]
-        # params = None
+        params = [source, model, endpoint, deployment, in_layer, out_layer, field_name, prompt, sql]
         return params
 
     def isLicensed(self):
@@ -179,7 +284,35 @@ class Field(object):
         validation is performed.  This method is called whenever a parameter
         has been changed."""
         source = parameters[0].value
-
+        if source == "Azure OpenAI":
+            parameters[1].enabled = True
+            parameters[2].enabled = True
+            parameters[3].enabled = True
+            parameters[1].value = "gpt-4"
+        elif source == "OpenAI":
+            parameters[1].enabled = True
+            parameters[2].enabled = False
+            parameters[3].enabled = False
+            parameters[1].value = "gpt-4"
+        elif source == "Claude":
+            parameters[1].enabled = True
+            parameters[2].enabled = False
+            parameters[3].enabled = False
+            parameters[1].value = "claude-3-opus-20240229"
+        elif source == "DeepSeek":
+            parameters[1].enabled = True
+            parameters[2].enabled = False
+            parameters[3].enabled = False
+            parameters[1].value = "deepseek-chat"
+        elif source == "Local LLM":
+            parameters[1].enabled = False
+            parameters[2].enabled = True
+            parameters[3].enabled = False
+            parameters[2].value = "http://localhost:8000"
+        elif source == "Wolfram Alpha":
+            parameters[1].enabled = False
+            parameters[2].enabled = False
+            parameters[3].enabled = False
         return
 
     def updateMessages(self, parameters):
@@ -189,24 +322,45 @@ class Field(object):
 
     def execute(self, parameters, messages):
         """The source code of the tool."""
-        # associate the source with the api key variable name
-        api_key_name = {"OpenAI": "OPENAI_API_KEY", "Wolfram Alpha": "WOLFRAM_ALPHA_API_KEY"}[parameters[0].valueAsText]
-        # Get the API key from the environment variable
-        api_key = get_env_var(api_key_name)
+        source = parameters[0].valueAsText
+        model = parameters[1].valueAsText
+        endpoint = parameters[2].valueAsText
+        deployment = parameters[3].valueAsText
+        in_layer = parameters[4].valueAsText
+        out_layer = parameters[5].valueAsText
+        field_name = parameters[6].valueAsText
+        prompt = parameters[7].valueAsText
+        sql = parameters[8].valueAsText
 
-        # Initialize appropriate client based on source
-        if parameters[0].valueAsText == "OpenAI":
-            client = OpenAIClient(api_key)
-        else:
-            client = WolframAlphaClient(api_key)
+        # Get the appropriate API key
+        api_key_map = {
+            "OpenAI": "OPENAI_API_KEY",
+            "Azure OpenAI": "AZURE_OPENAI_API_KEY",
+            "Claude": "ANTHROPIC_API_KEY",
+            "DeepSeek": "DEEPSEEK_API_KEY",
+            "Local LLM": None,
+            "Wolfram Alpha": "WOLFRAM_ALPHA_API_KEY"
+        }
+        api_key = get_env_var(api_key_map.get(source, "OPENAI_API_KEY"))
 
         # Add AI response to feature layer
-        client.add_ai_response_to_feature_layer(
-            parameters[1].valueAsText,  # input layer
-            parameters[2].valueAsText,  # output layer
-            parameters[3].valueAsText,  # field name
-            parameters[4].valueAsText,  # prompt
-            parameters[5].valueAsText   # sql query
+        kwargs = {}
+        if model:
+            kwargs["model"] = model
+        if endpoint:
+            kwargs["endpoint"] = endpoint
+        if deployment:
+            kwargs["deployment_name"] = deployment
+
+        add_ai_response_to_feature_layer(
+            api_key,
+            source,
+            in_layer,
+            out_layer,
+            field_name,
+            prompt,
+            sql,
+            **kwargs
         )
         return
 
@@ -214,6 +368,7 @@ class Field(object):
         """This method takes place after outputs are processed and
         added to the display."""
         return
+
 class GetMapInfo(object):
     def __init__(self):
         """Define the tool (tool name is the name of the class)."""
@@ -290,6 +445,47 @@ class Python(object):
 
     def getParameterInfo(self):
         """Define the tool parameters."""
+        source = arcpy.Parameter(
+            displayName="Source",
+            name="source",
+            datatype="GPString",
+            parameterType="Required",
+            direction="Input",
+        )
+        source.filter.type = "ValueList"
+        source.filter.list = ["OpenAI", "Azure OpenAI", "Claude", "DeepSeek", "Local LLM"]
+        source.value = "OpenAI"
+
+        model = arcpy.Parameter(
+            displayName="Model",
+            name="model",
+            datatype="GPString",
+            parameterType="Optional",
+            direction="Input",
+        )
+        model.value = ""
+        model.enabled = True
+
+        endpoint = arcpy.Parameter(
+            displayName="Endpoint",
+            name="endpoint",
+            datatype="GPString",
+            parameterType="Optional",
+            direction="Input",
+        )
+        endpoint.value = ""
+        endpoint.enabled = False
+
+        deployment = arcpy.Parameter(
+            displayName="Deployment Name",
+            name="deployment",
+            datatype="GPString",
+            parameterType="Optional",
+            direction="Input",
+        )
+        deployment.value = ""
+        deployment.enabled = False
+
         layers = arcpy.Parameter(
             displayName="Layers for context",
             name="layers_for_context",
@@ -308,14 +504,13 @@ class Python(object):
         )
 
         eval = arcpy.Parameter(
-            displayName="Run the code (not a good idea!)",
+            displayName="Execute Generated Code",
             name="eval",
             datatype="Boolean",
             parameterType="Required",
             direction="Input",
         )
-        
-        eval.value = False # default value False
+        eval.value = False
 
         context = arcpy.Parameter(
             displayName="Context (this will be passed to the AI)",
@@ -327,7 +522,7 @@ class Python(object):
         )
         context.controlCLSID = '{E5456E51-0C41-4797-9EE4-5269820C6F0E}'
 
-        params = [layers,prompt,eval,context]
+        params = [source, model, endpoint, deployment, layers, prompt, eval, context]
         return params
 
     def isLicensed(self):
@@ -338,15 +533,42 @@ class Python(object):
         """Modify the values and properties of parameters before internal
         validation is performed.  This method is called whenever a parameter
         has been changed."""
-        layers = parameters[0].values
+        source = parameters[0].value
+        if source == "Azure OpenAI":
+            parameters[1].enabled = True
+            parameters[2].enabled = True
+            parameters[3].enabled = True
+            parameters[1].value = "gpt-4"
+        elif source == "OpenAI":
+            parameters[1].enabled = True
+            parameters[2].enabled = False
+            parameters[3].enabled = False
+            parameters[1].value = "gpt-4"
+        elif source == "Claude":
+            parameters[1].enabled = True
+            parameters[2].enabled = False
+            parameters[3].enabled = False
+            parameters[1].value = "claude-3-opus-20240229"
+        elif source == "DeepSeek":
+            parameters[1].enabled = True
+            parameters[2].enabled = False
+            parameters[3].enabled = False
+            parameters[1].value = "deepseek-chat"
+        elif source == "Local LLM":
+            parameters[1].enabled = False
+            parameters[2].enabled = True
+            parameters[3].enabled = False
+            parameters[2].value = "http://localhost:8000"
+
+        layers = parameters[4].values
         # combine map and layer data into one JSON
-        # only do this if context_json is empty
-        if parameters[3].valueAsText == "":
+        # only do this if context is empty
+        if parameters[7].valueAsText == "":
             context_json = {
                 "map": MapUtils.map_to_json(), 
                 "layers": FeatureLayerUtils.get_layer_info(layers)
             }
-            parameters[3].value = json.dumps(context_json, indent=2)
+            parameters[7].value = json.dumps(context_json, indent=2)
         return
 
     def updateMessages(self, parameters):
@@ -355,36 +577,50 @@ class Python(object):
         return
 
     def execute(self, parameters, messages):
+        """The source code of the tool."""
+        source = parameters[0].valueAsText
+        model = parameters[1].valueAsText
+        endpoint = parameters[2].valueAsText
+        deployment = parameters[3].valueAsText
+        layers = parameters[4].values
+        prompt = parameters[5].value
+        eval = parameters[6].value
+        derived_context = parameters[7].value
 
-        # Get the API key from the environment variable
-        api_key = get_env_var()
-        # api_key = arcgispro_ai_utils.get_SymphonyGIS_api_key()
-        layers = parameters[0].values # feature layer (multiple)
-        prompt = parameters[1].value  # string
-        eval = parameters[2].value  # boolean
-        derived_context = parameters[3].value  # string with multiple lines
-        
-        #debug
-        # arcpy.AddMessage("api_key: {}".format(api_key))
-        # arcpy.AddMessage("feature_layer: {}".format(layers))
-        # arcpy.AddMessage("prompt: {}".format(prompt))
-        # arcpy.AddMessage("eval: {}".format(eval))
+        # Get the appropriate API key
+        api_key_map = {
+            "OpenAI": "OPENAI_API_KEY",
+            "Azure OpenAI": "AZURE_OPENAI_API_KEY",
+            "Claude": "ANTHROPIC_API_KEY",
+            "DeepSeek": "DEEPSEEK_API_KEY",
+            "Local LLM": None
+        }
+        api_key = get_env_var(api_key_map.get(source, "OPENAI_API_KEY"))
 
-        code_snippet = openai_client.generate_python(
-            derived_context,
+        # Generate Python code
+        kwargs = {}
+        if model:
+            kwargs["model"] = model
+        if endpoint:
+            kwargs["endpoint"] = endpoint
+        if deployment:
+            kwargs["deployment_name"] = deployment
+
+        code_snippet = generate_python(
+            api_key,
+            json.loads(derived_context),
             prompt.strip(),
+            source,
+            **kwargs
         )
 
         if eval == True:
             try:
                 if code_snippet:
-                    # execute the code
                     arcpy.AddMessage("Executing code... fingers crossed!")
                     exec(code_snippet)
                 else:
                     raise Exception("No code generated. Please try again.")
-
-            # catch AttributeError: 'NoneType' object has no attribute 'camera'
             except AttributeError as e:
                 arcpy.AddError(f"{e}\n\nMake sure a map view is active.")
             except Exception as e:
