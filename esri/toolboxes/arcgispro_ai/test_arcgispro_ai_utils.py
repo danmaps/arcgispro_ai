@@ -2,19 +2,23 @@ import unittest
 import json
 import os
 from unittest.mock import Mock, patch
-from arcgispro_ai_utils import (
-    APIClient,
-    OpenAIClient,
-    AzureOpenAIClient,
-    ClaudeClient,
-    DeepSeekClient,
-    LocalLLMClient,
-    WolframAlphaClient,
-    get_client,
-    MapUtils,
-    GeoJSONUtils,
-    parse_numeric_value
-)
+
+# Mock arcpy before importing the utils
+mock_arcpy = Mock()
+with patch.dict('sys.modules', {'arcpy': mock_arcpy}):
+    from arcgispro_ai_utils import (
+        APIClient,
+        OpenAIClient,
+        AzureOpenAIClient,
+        ClaudeClient,
+        DeepSeekClient,
+        LocalLLMClient,
+        WolframAlphaClient,
+        get_client,
+        MapUtils,
+        GeoJSONUtils,
+        parse_numeric_value
+    )
 
 class TestAPIClient(unittest.TestCase):
     def setUp(self):
