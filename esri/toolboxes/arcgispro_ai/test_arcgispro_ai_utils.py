@@ -4,10 +4,14 @@ import os
 import sys
 from unittest.mock import Mock, patch
 
-# Add the parent directory to Python path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
+# Add the root directory to Python path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..')))
 
-from arcgispro_ai_utils import (
+from esri.toolboxes.arcgispro_ai.arcgispro_ai_utils import (
+    MapUtils,
+    FeatureLayerUtils
+)
+from esri.toolboxes.arcgispro_ai.core.api_clients import (
     APIClient,
     OpenAIClient,
     AzureOpenAIClient,
@@ -16,7 +20,6 @@ from arcgispro_ai_utils import (
     LocalLLMClient,
     WolframAlphaClient,
     get_client,
-    MapUtils,
     GeoJSONUtils,
     parse_numeric_value
 )
@@ -78,7 +81,7 @@ class TestOpenAIClient(unittest.TestCase):
                 "model": "gpt-4",
                 "messages": messages,
                 "temperature": 0.5,
-                "max_tokens": 5000,
+                "max_tokens": 4096,
                 "response_format": {"type": "json_object"}
             }
         )

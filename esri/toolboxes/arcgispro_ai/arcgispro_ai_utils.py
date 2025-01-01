@@ -7,7 +7,7 @@ import tempfile
 import re
 from typing import Dict, List, Union, Optional, Any
 
-from .core.api_clients import (
+from esri.toolboxes.arcgispro_ai.core.api_clients import (
     get_client,
     GeoJSONUtils,
     parse_numeric_value,
