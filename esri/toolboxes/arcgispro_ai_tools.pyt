@@ -2,10 +2,14 @@ import arcpy
 import json
 import os
 from arcgispro_ai.arcgispro_ai_utils import (
-    get_client,
+    MapUtils,
+    FeatureLayerUtils,
     fetch_geojson,
     generate_python,
-    add_ai_response_to_feature_layer,
+    add_ai_response_to_feature_layer
+)
+from arcgispro_ai.core.api_clients import (
+    get_client,
     get_env_var
 )
 

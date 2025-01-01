@@ -4,10 +4,10 @@ import os
 import sys
 from unittest.mock import Mock, patch
 
-# Add the parent directory to Python path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
+# Add the root directory to Python path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..')))
 
-from arcgispro_ai_utils import (
+from esri.toolboxes.arcgispro_ai.core.api_clients import (
     APIClient,
     OpenAIClient,
     AzureOpenAIClient,
@@ -16,7 +16,6 @@ from arcgispro_ai_utils import (
     LocalLLMClient,
     WolframAlphaClient,
     get_client,
-    MapUtils,
     GeoJSONUtils,
     parse_numeric_value
 )
@@ -293,46 +292,6 @@ class TestGetClient(unittest.TestCase):
     def test_invalid_source(self):
         with self.assertRaises(ValueError):
             get_client("Invalid Source", self.api_key)
-
-class TestMapUtils(unittest.TestCase):
-    def test_metadata_to_dict(self):
-        # Create a mock metadata object
-        class MockMetadata:
-            def __init__(self):
-                self.title = "Test Title"
-                self.tags = ["tag1", "tag2"]
-                self.summary = "Test Summary"
-                self.description = "Test Description"
-                self.credits = "Test Credits"
-                self.accessConstraints = "Test Constraints"
-                self.XMax = 10
-                self.XMin = 0
-                self.YMax = 10
-                self.YMin = 0
-
-        metadata = MockMetadata()
-        result = MapUtils.metadata_to_dict(metadata)
-
-        self.assertEqual(result["title"], "Test Title")
-        self.assertEqual(result["tags"], ["tag1", "tag2"])
-        self.assertEqual(result["extent"]["xmax"], 10)
-        self.assertEqual(result["extent"]["xmin"], 0)
-
-    def test_expand_extent(self):
-        class MockExtent:
-            def __init__(self, xmin, ymin, xmax, ymax):
-                self.XMin = xmin
-                self.YMin = ymin
-                self.XMax = xmax
-                self.YMax = ymax
-
-        extent = MockExtent(0, 0, 10, 10)
-        expanded = MapUtils.expand_extent(extent, 1.1)
-        
-        self.assertAlmostEqual(expanded.XMin, -0.5)
-        self.assertAlmostEqual(expanded.YMin, -0.5)
-        self.assertAlmostEqual(expanded.XMax, 10.5)
-        self.assertAlmostEqual(expanded.YMax, 10.5)
 
 class TestGeoJSONUtils(unittest.TestCase):
     def test_infer_geometry_type(self):
