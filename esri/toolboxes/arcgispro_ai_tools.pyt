@@ -80,8 +80,8 @@ class Toolbox:
     def __init__(self):
         """Define the toolbox (the name of the toolbox is the name of the
         .pyt file)."""
-        self.label = "SymphonyGIS"
-        self.alias = "SymphonyGIS"
+        self.label = "ArcGIS Pro AI Tools"
+        self.alias = "ArcGIS Pro AI Tools"
 
         # List of tool classes associated with this toolbox
         self.tools = [FeatureLayer,
