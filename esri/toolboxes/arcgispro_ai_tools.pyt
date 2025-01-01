@@ -6,7 +6,8 @@ from arcgispro_ai.arcgispro_ai_utils import (
     FeatureLayerUtils,
     fetch_geojson,
     generate_python,
-    add_ai_response_to_feature_layer
+    add_ai_response_to_feature_layer,
+    map_to_json
 )
 from arcgispro_ai.core.api_clients import (
     get_client,
@@ -108,26 +109,40 @@ class FeatureLayer(object):
         validation is performed.  This method is called whenever a parameter
         has been changed."""
         source = parameters[0].value
+        current_model = parameters[1].value
+
         if source == "Azure OpenAI":
             parameters[1].enabled = True
             parameters[2].enabled = True
             parameters[3].enabled = True
-            parameters[1].value = "gpt-4"
+            parameters[1].filter.type = "ValueList"
+            parameters[1].filter.list = ["gpt-4", "gpt-4-turbo-preview", "gpt-3.5-turbo"]
+            if not current_model or current_model not in parameters[1].filter.list:
+                parameters[1].value = "gpt-4"
         elif source == "OpenAI":
             parameters[1].enabled = True
             parameters[2].enabled = False
             parameters[3].enabled = False
-            parameters[1].value = "gpt-4"
+            parameters[1].filter.type = "ValueList"
+            parameters[1].filter.list = ["gpt-3.5-turbo", "gpt-4", "gpt-4-turbo-preview"]
+            if not current_model or current_model not in parameters[1].filter.list:
+                parameters[1].value = "gpt-3.5-turbo"
         elif source == "Claude":
             parameters[1].enabled = True
             parameters[2].enabled = False
             parameters[3].enabled = False
-            parameters[1].value = "claude-3-opus-20240229"
+            parameters[1].filter.type = "ValueList"
+            parameters[1].filter.list = ["claude-3-opus-20240229", "claude-3-sonnet-20240229"]
+            if not current_model or current_model not in parameters[1].filter.list:
+                parameters[1].value = "claude-3-opus-20240229"
         elif source == "DeepSeek":
             parameters[1].enabled = True
             parameters[2].enabled = False
             parameters[3].enabled = False
-            parameters[1].value = "deepseek-chat"
+            parameters[1].filter.type = "ValueList"
+            parameters[1].filter.list = ["deepseek-chat", "deepseek-coder"]
+            if not current_model or current_model not in parameters[1].filter.list:
+                parameters[1].value = "deepseek-chat"
         elif source == "Local LLM":
             parameters[1].enabled = False
             parameters[2].enabled = True
@@ -288,26 +303,40 @@ class Field(object):
         validation is performed.  This method is called whenever a parameter
         has been changed."""
         source = parameters[0].value
+        current_model = parameters[1].value
+
         if source == "Azure OpenAI":
             parameters[1].enabled = True
             parameters[2].enabled = True
             parameters[3].enabled = True
-            parameters[1].value = "gpt-4"
+            parameters[1].filter.type = "ValueList"
+            parameters[1].filter.list = ["gpt-4", "gpt-4-turbo-preview", "gpt-3.5-turbo"]
+            if not current_model or current_model not in parameters[1].filter.list:
+                parameters[1].value = "gpt-4"
         elif source == "OpenAI":
             parameters[1].enabled = True
             parameters[2].enabled = False
             parameters[3].enabled = False
-            parameters[1].value = "gpt-4"
+            parameters[1].filter.type = "ValueList"
+            parameters[1].filter.list = ["gpt-3.5-turbo", "gpt-4", "gpt-4-turbo-preview"]
+            if not current_model or current_model not in parameters[1].filter.list:
+                parameters[1].value = "gpt-3.5-turbo"
         elif source == "Claude":
             parameters[1].enabled = True
             parameters[2].enabled = False
             parameters[3].enabled = False
-            parameters[1].value = "claude-3-opus-20240229"
+            parameters[1].filter.type = "ValueList"
+            parameters[1].filter.list = ["claude-3-opus-20240229", "claude-3-sonnet-20240229"]
+            if not current_model or current_model not in parameters[1].filter.list:
+                parameters[1].value = "claude-3-opus-20240229"
         elif source == "DeepSeek":
             parameters[1].enabled = True
             parameters[2].enabled = False
             parameters[3].enabled = False
-            parameters[1].value = "deepseek-chat"
+            parameters[1].filter.type = "ValueList"
+            parameters[1].filter.list = ["deepseek-chat", "deepseek-coder"]
+            if not current_model or current_model not in parameters[1].filter.list:
+                parameters[1].value = "deepseek-chat"
         elif source == "Local LLM":
             parameters[1].enabled = False
             parameters[2].enabled = True
@@ -317,6 +346,7 @@ class Field(object):
             parameters[1].enabled = False
             parameters[2].enabled = False
             parameters[3].enabled = False
+
         return
 
     def updateMessages(self, parameters):
@@ -432,7 +462,7 @@ class GetMapInfo(object):
         """The source code of the tool."""
         in_map = parameters[0].valueAsText
         out_json = parameters[1].valueAsText
-        map_info = MapUtils.map_to_json(in_map)
+        map_info = map_to_json(in_map)
         with open(out_json, "w") as f:
             json.dump(map_info, f, indent=4)
 
@@ -538,26 +568,40 @@ class Python(object):
         validation is performed.  This method is called whenever a parameter
         has been changed."""
         source = parameters[0].value
+        current_model = parameters[1].value
+
         if source == "Azure OpenAI":
             parameters[1].enabled = True
             parameters[2].enabled = True
             parameters[3].enabled = True
-            parameters[1].value = "gpt-4"
+            parameters[1].filter.type = "ValueList"
+            parameters[1].filter.list = ["gpt-4o-mini", "gpt-4o", "gpt-4-turbo-preview", "gpt-3.5-turbo"]
+            if not current_model or current_model not in parameters[1].filter.list:
+                parameters[1].value = "gpt-4o-mini"
         elif source == "OpenAI":
             parameters[1].enabled = True
             parameters[2].enabled = False
             parameters[3].enabled = False
-            parameters[1].value = "gpt-4"
+            parameters[1].filter.type = "ValueList"
+            parameters[1].filter.list = ["gpt-4o-mini", "gpt-3.5-turbo", "gpt-4", "gpt-4-turbo-preview"]
+            if not current_model or current_model not in parameters[1].filter.list:
+                parameters[1].value = "gpt-3.5-turbo"
         elif source == "Claude":
             parameters[1].enabled = True
             parameters[2].enabled = False
             parameters[3].enabled = False
-            parameters[1].value = "claude-3-opus-20240229"
+            parameters[1].filter.type = "ValueList"
+            parameters[1].filter.list = ["claude-3-opus-20240229", "claude-3-sonnet-20240229"]
+            if not current_model or current_model not in parameters[1].filter.list:
+                parameters[1].value = "claude-3-opus-20240229"
         elif source == "DeepSeek":
             parameters[1].enabled = True
             parameters[2].enabled = False
             parameters[3].enabled = False
-            parameters[1].value = "deepseek-chat"
+            parameters[1].filter.type = "ValueList"
+            parameters[1].filter.list = ["deepseek-chat", "deepseek-coder"]
+            if not current_model or current_model not in parameters[1].filter.list:
+                parameters[1].value = "deepseek-chat"
         elif source == "Local LLM":
             parameters[1].enabled = False
             parameters[2].enabled = True
@@ -569,7 +613,7 @@ class Python(object):
         # only do this if context is empty
         if parameters[7].valueAsText == "":
             context_json = {
-                "map": MapUtils.map_to_json(), 
+                "map": map_to_json(), 
                 "layers": FeatureLayerUtils.get_layer_info(layers)
             }
             parameters[7].value = json.dumps(context_json, indent=2)
@@ -610,27 +654,49 @@ class Python(object):
         if deployment:
             kwargs["deployment_name"] = deployment
 
-        code_snippet = generate_python(
-            api_key,
-            json.loads(derived_context),
-            prompt.strip(),
-            source,
-            **kwargs
-        )
+        # If derived_context is None, create a default context
+        if derived_context is None:
+            context_json = {
+                "map": map_to_json(), 
+                "layers": FeatureLayerUtils.get_layer_info(layers) if layers else []
+            }
+        else:
+            context_json = json.loads(derived_context)
 
-        if eval == True:
-            try:
-                if code_snippet:
-                    arcpy.AddMessage("Executing code... fingers crossed!")
-                    exec(code_snippet)
-                else:
-                    raise Exception("No code generated. Please try again.")
-            except AttributeError as e:
-                arcpy.AddError(f"{e}\n\nMake sure a map view is active.")
-            except Exception as e:
+        try:
+            code_snippet = generate_python(
+                api_key,
+                context_json,
+                prompt.strip(),
+                source,
+                **kwargs
+            )
+
+            if eval == True:
+                try:
+                    if code_snippet:
+                        arcpy.AddMessage("Executing code... fingers crossed!")
+                        exec(code_snippet)
+                    else:
+                        raise Exception("No code generated. Please try again.")
+                except AttributeError as e:
+                    arcpy.AddError(f"{e}\n\nMake sure a map view is active.")
+                except Exception as e:
+                    arcpy.AddError(
+                        f"{e}\n\nThe code may be invalid. Please check the code and try again."
+                    )
+        except Exception as e:
+            if "429" in str(e):
                 arcpy.AddError(
-                    f"{e}\n\nThe code may be invalid. Please check the code and try again."
+                    "Rate limit exceeded. Please try:\n"
+                    "1. Wait a minute and try again\n"
+                    "2. Use a different model (e.g. GPT-3.5 instead of GPT-4)\n"
+                    "3. Use a different provider (e.g. Claude or DeepSeek)\n"
+                    "4. Check your API key's rate limits and usage"
                 )
+            else:
+                arcpy.AddError(str(e))
+            return
 
         return
 
@@ -720,31 +786,46 @@ class ConvertTextToNumeric(object):
         validation is performed.  This method is called whenever a parameter
         has been changed."""
         source = parameters[0].value
+        current_model = parameters[1].value
+
         if source == "Azure OpenAI":
             parameters[1].enabled = True
             parameters[2].enabled = True
             parameters[3].enabled = True
-            parameters[1].value = "gpt-4"
+            parameters[1].filter.type = "ValueList"
+            parameters[1].filter.list = ["gpt-4", "gpt-4-turbo-preview", "gpt-3.5-turbo"]
+            if not current_model or current_model not in parameters[1].filter.list:
+                parameters[1].value = "gpt-4"
         elif source == "OpenAI":
             parameters[1].enabled = True
             parameters[2].enabled = False
             parameters[3].enabled = False
-            parameters[1].value = "gpt-4"
+            parameters[1].filter.type = "ValueList"
+            parameters[1].filter.list = ["gpt-3.5-turbo", "gpt-4", "gpt-4-turbo-preview"]
+            if not current_model or current_model not in parameters[1].filter.list:
+                parameters[1].value = "gpt-3.5-turbo"
         elif source == "Claude":
             parameters[1].enabled = True
             parameters[2].enabled = False
             parameters[3].enabled = False
-            parameters[1].value = "claude-3-opus-20240229"
+            parameters[1].filter.type = "ValueList"
+            parameters[1].filter.list = ["claude-3-opus-20240229", "claude-3-sonnet-20240229"]
+            if not current_model or current_model not in parameters[1].filter.list:
+                parameters[1].value = "claude-3-opus-20240229"
         elif source == "DeepSeek":
             parameters[1].enabled = True
             parameters[2].enabled = False
             parameters[3].enabled = False
-            parameters[1].value = "deepseek-chat"
+            parameters[1].filter.type = "ValueList"
+            parameters[1].filter.list = ["deepseek-chat", "deepseek-coder"]
+            if not current_model or current_model not in parameters[1].filter.list:
+                parameters[1].value = "deepseek-chat"
         elif source == "Local LLM":
             parameters[1].enabled = False
             parameters[2].enabled = True
             parameters[3].enabled = False
             parameters[2].value = "http://localhost:8000"
+
         return
 
     def updateMessages(self, parameters):

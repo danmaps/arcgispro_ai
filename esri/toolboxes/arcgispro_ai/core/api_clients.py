@@ -5,6 +5,15 @@ import os
 import xml.etree.ElementTree as ET
 from typing import Dict, List, Union, Optional, Any
 
+def log_message(message: str):
+    """Log message to both console and ArcGIS Pro if available."""
+    print(message)  # Always print to console for testing
+    try:
+        import arcpy
+        arcpy.AddMessage(message)  # Log to ArcGIS Pro if available
+    except ImportError:
+        pass  # Not running in ArcGIS Pro
+
 class APIClient:
     def __init__(self, api_key: str, base_url: str = "https://api.openai.com/v1"):
         self.api_key = api_key
@@ -17,22 +26,36 @@ class APIClient:
     def make_request(self, endpoint: str, data: Dict[str, Any], max_retries: int = 3) -> Dict[str, Any]:
         """Make an API request with retry logic."""
         url = f"{self.base_url}/{endpoint}"
-        
+        log_message(f"Making request to: {url}")
         for attempt in range(max_retries):
             try:
+                log_message(f"\nAttempt {attempt + 1} - Making request to: {url}")
+                log_message(f"Request data: {json.dumps(data, indent=2)}")
+                
                 response = requests.post(url, headers=self.headers, json=data, verify=False)
+                
+                log_message(f"Response status: {response.status_code}")
+                if response.status_code != 200:
+                    log_message(f"Error response: {response.text}")
+                
                 response.raise_for_status()
                 return response.json()
             except requests.exceptions.RequestException as e:
                 if attempt == max_retries - 1:
-                    raise Exception(f"Failed to get response after {max_retries} retries: {str(e)}")
-                print(f"Retrying request due to: {e}")
-                time.sleep(1)
+                    if hasattr(e.response, 'text'):
+                        error_detail = e.response.text
+                    else:
+                        error_detail = str(e)
+                    raise Exception(f"Failed to get response after {max_retries} retries. Status: {e.response.status_code if hasattr(e, 'response') else 'Unknown'}, Error: {error_detail}")
+                log_message(f"Retrying request due to: {e}")
+                time.sleep(2 ** attempt)  # Exponential backoff
 
 class OpenAIClient(APIClient):
     def __init__(self, api_key: str, model: str = "gpt-4"):
         super().__init__(api_key, "https://api.openai.com/v1")
         self.model = model
+
+        log_message(f"OpenAI Client initialized with model: {self.model}")
 
     def get_completion(self, messages: List[Dict[str, str]], response_format: Optional[str] = None) -> str:
         """Get completion from OpenAI API."""
@@ -40,10 +63,15 @@ class OpenAIClient(APIClient):
             "model": self.model,
             "messages": messages,
             "temperature": 0.5,
-            "max_tokens": 5000,
+            "max_tokens": 4096,
         }
         
-        if response_format == "json_object":
+        # For GPT-3.5-turbo, ensure we're using the latest model version
+        if self.model == "gpt-3.5-turbo":
+            data["model"] = "gpt-3.5-turbo-0125"
+        
+        # Only add response_format for GPT-4 models
+        if response_format == "json_object" and self.model.startswith("gpt-4"):
             data["response_format"] = {"type": "json_object"}
         
         response = self.make_request("chat/completions", data)
