@@ -77,7 +77,7 @@ class TestOpenAIClient(unittest.TestCase):
                 "model": "gpt-4",
                 "messages": messages,
                 "temperature": 0.5,
-                "max_tokens": 5000,
+                "max_tokens": 4096,
                 "response_format": {"type": "json_object"}
             }
         )
