@@ -67,7 +67,6 @@ The toolbox supports multiple AI providers:
    setx AZURE_OPENAI_API_KEY "your-key-here"
    setx ANTHROPIC_API_KEY "your-key-here"
    setx DEEPSEEK_API_KEY "your-key-here"
-   setx WOLFRAM_ALPHA_API_KEY "your-key-here"
    ```
 
 2. For local LLM setup:
