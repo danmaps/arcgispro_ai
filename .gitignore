@@ -1,3 +1,13 @@
 esri/toolboxes/arcgispro_ai_tools.GetMapInfo.pyt.xml
 esri/toolboxes/arcgispro_ai_tools.pyt.xml
 esri/toolboxes/__pycache__/*
+test_data/
+*.pyc
+*.pyo
+*.pyd
+*.pyw
+*.pyz
+*.pywz
+
+*.pyt.xml
+esri/toolboxes/arcgispro_ai_tools.pyt.xml

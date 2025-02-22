@@ -7,7 +7,7 @@ import tempfile
 import re
 from typing import Dict, List, Union, Optional, Any
 
-from esri.toolboxes.arcgispro_ai.core.api_clients import (
+from .core.api_clients import (
     get_client,
     GeoJSONUtils,
     parse_numeric_value,
@@ -90,17 +90,6 @@ class FeatureLayerUtils:
                         )
                     }
         return layers_info
-
-def get_SymphonyGIS_api_key() -> str:
-    """Get SymphonyGIS API key from config file."""
-    config_path = os.path.join(os.getenv("APPDATA"), "SymphonyGIS", "config.json")
-    if not os.path.exists(config_path):
-        raise Exception(
-            f"API key not found in {config_path}. "
-            "Run setup.py to create a new config file with your SymphonyGIS API key."
-        )
-    with open(config_path) as config_file:
-        return json.load(config_file).get("api_key")
 
 def map_to_json(in_map: Optional[str] = None, output_json_path: Optional[str] = None) -> Dict[str, Any]:
     """Generate a JSON object containing information about a map."""
