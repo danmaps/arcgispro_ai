@@ -536,6 +536,7 @@ class Python(object):
             direction="Input",
         )
         eval.value = False
+        eval.category = "Hidden"
 
         context = arcpy.Parameter(
             displayName="Context (this will be passed to the AI)",
