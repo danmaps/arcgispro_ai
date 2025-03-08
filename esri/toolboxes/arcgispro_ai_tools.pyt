@@ -532,7 +532,7 @@ class Python(object):
             displayName="Execute Generated Code",
             name="eval",
             datatype="Boolean",
-            parameterType="Required",
+            parameterType="Optional",
             direction="Input",
         )
         eval.value = False
