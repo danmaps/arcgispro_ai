@@ -528,15 +528,15 @@ class Python(object):
             direction="Input",
         )
 
-        eval = arcpy.Parameter(
-            displayName="Execute Generated Code",
-            name="eval",
-            datatype="Boolean",
-            parameterType="Optional",
-            direction="Input",
-        )
-        eval.value = False
-        eval.category = "Hidden"
+        # Temporarily disabled eval parameter
+        # eval = arcpy.Parameter(
+        #     displayName="Execute Generated Code",
+        #     name="eval",
+        #     datatype="Boolean",
+        #     parameterType="Required",
+        #     direction="Input",
+        # )
+        # eval.value = False
 
         context = arcpy.Parameter(
             displayName="Context (this will be passed to the AI)",
@@ -548,7 +548,7 @@ class Python(object):
         )
         context.controlCLSID = '{E5456E51-0C41-4797-9EE4-5269820C6F0E}'
 
-        params = [source, model, endpoint, deployment, layers, prompt, eval, context]
+        params = [source, model, endpoint, deployment, layers, prompt, context]
         return params
 
     def isLicensed(self):
@@ -567,12 +567,12 @@ class Python(object):
         layers = parameters[4].values
         # combine map and layer data into one JSON
         # only do this if context is empty
-        if parameters[7].valueAsText == "":
+        if parameters[6].valueAsText == "":
             context_json = {
                 "map": map_to_json(), 
                 "layers": FeatureLayerUtils.get_layer_info(layers)
             }
-            parameters[7].value = json.dumps(context_json, indent=2)
+            parameters[6].value = json.dumps(context_json, indent=2)
         return
 
     def updateMessages(self, parameters):
@@ -588,8 +588,7 @@ class Python(object):
         deployment = parameters[3].valueAsText
         layers = parameters[4].values
         prompt = parameters[5].value
-        eval = parameters[6].value
-        derived_context = parameters[7].value
+        derived_context = parameters[6].value
 
         # Get the appropriate API key
         api_key_map = {
@@ -628,19 +627,19 @@ class Python(object):
                 **kwargs
             )
 
-            if eval == True:
-                try:
-                    if code_snippet:
-                        arcpy.AddMessage("Executing code... fingers crossed!")
-                        exec(code_snippet)
-                    else:
-                        raise Exception("No code generated. Please try again.")
-                except AttributeError as e:
-                    arcpy.AddError(f"{e}\n\nMake sure a map view is active.")
-                except Exception as e:
-                    arcpy.AddError(
-                        f"{e}\n\nThe code may be invalid. Please check the code and try again."
-                    )
+            # if eval == True:
+            try:
+                if code_snippet:
+                    arcpy.AddMessage("Executing code... fingers crossed!")
+                    exec(code_snippet)
+                else:
+                    raise Exception("No code generated. Please try again.")
+            except AttributeError as e:
+                arcpy.AddError(f"{e}\n\nMake sure a map view is active.")
+            except Exception as e:
+                arcpy.AddError(
+                    f"{e}\n\nThe code may be invalid. Please check the code and try again."
+                )
         except Exception as e:
             if "429" in str(e):
                 arcpy.AddError(
