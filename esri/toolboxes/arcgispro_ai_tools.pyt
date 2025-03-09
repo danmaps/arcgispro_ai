@@ -11,7 +11,8 @@ from arcgispro_ai.arcgispro_ai_utils import (
 )
 from arcgispro_ai.core.api_clients import (
     get_client,
-    get_env_var
+    get_env_var,
+    OpenAIClient
 )
 
 def update_model_parameters(source: str, parameters: list, current_model: str = None) -> None:
@@ -30,7 +31,7 @@ def update_model_parameters(source: str, parameters: list, current_model: str = 
             "deployment": True
         },
         "OpenAI": {
-            "models": ["gpt-4o-mini", "gpt-3.5-turbo", "gpt-4", "gpt-4-turbo-preview"],
+            "models": [],  # Will be populated dynamically
             "default": "gpt-4o-mini",
             "endpoint": False,
             "deployment": False
@@ -59,6 +60,18 @@ def update_model_parameters(source: str, parameters: list, current_model: str = 
     config = model_configs.get(source, {})
     if not config:
         return
+
+    # If OpenAI is selected, fetch available models
+    if source == "OpenAI":
+        try:
+            api_key = get_env_var("OPENAI_API_KEY")
+            client = OpenAIClient(api_key)
+            config["models"] = client.get_available_models()
+            if config["models"]:  # If we got models from the API
+                config["default"] = "gpt-4" if "gpt-4" in config["models"] else config["models"][0]
+        except Exception:
+            # If fetching fails, use default hardcoded models
+            config["models"] = ["gpt-4o-mini", "gpt-3.5-turbo", "gpt-4", "gpt-4-turbo-preview"]
 
     # Model parameter
     parameters[1].enabled = bool(config["models"])
@@ -628,19 +641,19 @@ class Python(object):
             )
 
             # if eval == True:
-            # try:
-            #     if code_snippet:
-            #         arcpy.AddMessage("Executing code... fingers crossed!")
-            #         exec(code_snippet)
-            #     else:
-            #         raise Exception("No code generated. Please try again.")
-            # except AttributeError as e:
-            #     arcpy.AddError(f"{e}\n\nMake sure a map view is active.")
-            # except Exception as e:
-            #     arcpy.AddError(
-            #         f"{e}\n\nThe code may be invalid. Please check the code and try again."
-            #     )
-            
+            #     try:
+            #         if code_snippet:
+            #             arcpy.AddMessage("Executing code... fingers crossed!")
+            #             exec(code_snippet)
+            #         else:
+            #             raise Exception("No code generated. Please try again.")
+            #     except AttributeError as e:
+            #         arcpy.AddError(f"{e}\n\nMake sure a map view is active.")
+            #     except Exception as e:
+            #         arcpy.AddError(
+            #             f"{e}\n\nThe code may be invalid. Please check the code and try again."
+            #         )
+
         except Exception as e:
             if "429" in str(e):
                 arcpy.AddError(
