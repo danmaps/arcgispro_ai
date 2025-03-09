@@ -628,18 +628,19 @@ class Python(object):
             )
 
             # if eval == True:
-            try:
-                if code_snippet:
-                    arcpy.AddMessage("Executing code... fingers crossed!")
-                    exec(code_snippet)
-                else:
-                    raise Exception("No code generated. Please try again.")
-            except AttributeError as e:
-                arcpy.AddError(f"{e}\n\nMake sure a map view is active.")
-            except Exception as e:
-                arcpy.AddError(
-                    f"{e}\n\nThe code may be invalid. Please check the code and try again."
-                )
+            # try:
+            #     if code_snippet:
+            #         arcpy.AddMessage("Executing code... fingers crossed!")
+            #         exec(code_snippet)
+            #     else:
+            #         raise Exception("No code generated. Please try again.")
+            # except AttributeError as e:
+            #     arcpy.AddError(f"{e}\n\nMake sure a map view is active.")
+            # except Exception as e:
+            #     arcpy.AddError(
+            #         f"{e}\n\nThe code may be invalid. Please check the code and try again."
+            #     )
+            
         except Exception as e:
             if "429" in str(e):
                 arcpy.AddError(
