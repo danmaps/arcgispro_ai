@@ -57,6 +57,22 @@ class OpenAIClient(APIClient):
 
         # log_message(f"OpenAI Client initialized with model: {self.model}")
 
+    def get_available_models(self) -> List[str]:
+        """Get list of available models from OpenAI API."""
+        try:
+            response = requests.get(f"{self.base_url}/models", headers=self.headers, verify=False)
+            response.raise_for_status()
+            models = response.json()["data"]
+            # Filter for chat models only
+            chat_models = [
+                model["id"] for model in models 
+                if model["id"].startswith(("gpt-4", "gpt-3.5"))
+            ]
+            return sorted(chat_models)
+        except Exception as e:
+            # If API call fails, return default models
+            return ["gpt-4o-mini", "gpt-3.5-turbo", "gpt-4", "gpt-4-turbo-preview"]
+
     def get_completion(self, messages: List[Dict[str, str]], response_format: Optional[str] = None) -> str:
         """Get completion from OpenAI API."""
         data = {
