@@ -387,6 +387,8 @@ class Field(object):
             sql,
             **kwargs
         )
+
+        arcpy.AddMessage(f"{out_layer} created with AI-generated field {field_name}.")
         return
 
     def postExecute(self, parameters):
