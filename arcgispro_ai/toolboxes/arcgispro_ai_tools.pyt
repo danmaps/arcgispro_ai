@@ -92,9 +92,11 @@ def update_model_parameters(source: str, parameters: list, current_model: str = 
 class Toolbox:
     def __init__(self):
         """Define the toolbox (the name of the toolbox is the name of the
-        .pyt file)."""
-        self.label = "ArcGIS Pro AI Tools"
-        self.alias = "ArcGIS Pro AI Tools"
+        .pyt file). This is important because the tools can be called like
+        `arcpy.mytoolbox.mytool()` where mytoolbox is the name of the .pyt
+        file and mytool is the name of the class in the toolbox."""
+        self.label = "ai"
+        self.alias = "ai"
 
         # List of tool classes associated with this toolbox
         self.tools = [FeatureLayer,
