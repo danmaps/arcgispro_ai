@@ -11,3 +11,7 @@ test_data/
 
 *.pyt.xml
 esri/toolboxes/arcgispro_ai_tools.pyt.xml
+esri/toolboxes/__pycache__/*
+esri/toolboxes/arcgispro_ai/__pycache__/*
+esri/toolboxes/arcgispro_ai/core/__pycache__/*
+
