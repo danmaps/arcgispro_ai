@@ -1,0 +1,8 @@
+LICENSE
+README.md
+setup.py
+arcgispro_ai.egg-info/PKG-INFO
+arcgispro_ai.egg-info/SOURCES.txt
+arcgispro_ai.egg-info/dependency_links.txt
+arcgispro_ai.egg-info/requires.txt
+arcgispro_ai.egg-info/top_level.txt

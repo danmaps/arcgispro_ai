@@ -15,3 +15,6 @@ esri/toolboxes/__pycache__/*
 esri/toolboxes/arcgispro_ai/__pycache__/*
 esri/toolboxes/arcgispro_ai/core/__pycache__/*
 
+build/
+dist/
+venv/
