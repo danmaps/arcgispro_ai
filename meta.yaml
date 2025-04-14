@@ -1,0 +1,29 @@
+package:
+  name: arcgispro_ai
+  version: 0.0.1
+
+source:
+  path: .
+
+build:
+  number: 0
+  script: "{{ PYTHON }} -m pip install . -vv"
+  noarch: python
+
+requirements:
+  host:
+    - python
+    - pip
+    - setuptools
+  run:
+    - python
+    - arcpy
+
+about:
+  home: https://github.com/danmaps/arcgispro_ai
+  summary: AI tools for ArcGIS Pro
+  license: MIT
+
+extra:
+  recipe-maintainers:
+    - danmaps

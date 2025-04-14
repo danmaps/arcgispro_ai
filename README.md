@@ -21,6 +21,7 @@ The ArcGIS Pro AI Toolbox is a Python-based toolbox designed to enhance the func
 The toolbox supports multiple AI providers:
 
 ### OpenAI
+
 - Default provider
 - Supports GPT-4 and other OpenAI models
 - Requires: `OPENAI_API_KEY` environment variable
@@ -28,6 +29,7 @@ The toolbox supports multiple AI providers:
   - Model: Select the OpenAI model to use (default: gpt-4)
 
 ### Azure OpenAI
+
 - Microsoft's Azure-hosted OpenAI service
 - Requires: `AZURE_OPENAI_API_KEY` environment variable
 - Configuration:
@@ -36,18 +38,21 @@ The toolbox supports multiple AI providers:
   - Deployment Name: The deployment name for your model
 
 ### Claude (Anthropic)
+
 - Anthropic's Claude models
 - Requires: `ANTHROPIC_API_KEY` environment variable
 - Configuration:
   - Model: Select Claude model (default: claude-3-opus-20240229)
 
 ### DeepSeek
+
 - DeepSeek's language models
 - Requires: `DEEPSEEK_API_KEY` environment variable
 - Configuration:
   - Model: Select DeepSeek model (default: deepseek-chat)
 
 ### Local LLM
+
 - Run against a local LLM server
 - No API key required
 - Configuration:
@@ -55,6 +60,7 @@ The toolbox supports multiple AI providers:
   - Must implement OpenAI-compatible chat completions API
 
 ### Wolfram Alpha
+
 - For mathematical and computational queries
 - Requires: `WOLFRAM_ALPHA_API_KEY` environment variable
 - No additional configuration needed
@@ -62,6 +68,7 @@ The toolbox supports multiple AI providers:
 ## Installation
 
 1. Set up the required environment variables for your chosen AI provider(s):
+
    ```batch
    setx OPENAI_API_KEY "your-key-here"
    setx AZURE_OPENAI_API_KEY "your-key-here"
@@ -71,7 +78,7 @@ The toolbox supports multiple AI providers:
 
 2. For local LLM setup:
    - Deploy a compatible LLM server that implements the OpenAI chat completions API
-   - Configure the endpoint URL in the tool interface (defaults to http://localhost:8000)
+   - Configure the endpoint URL in the tool interface (defaults to `http://localhost:8000`)
 
 ## Usage
 
@@ -84,3 +91,4 @@ Each tool will use the selected provider to generate responses, with automatic f
 
 ## Contributing
 
+Make an issue or create a branch for your feature or bug fix, and submit a pull request.
