@@ -26,7 +26,7 @@ def update_model_parameters(source: str, parameters: list, current_model: str = 
     model_configs = {
         "Azure OpenAI": {
             "models": ["gpt-4", "gpt-4-turbo-preview", "gpt-3.5-turbo"],
-            "default": "gpt-4",
+            "default": "gpt-4o-mini",
             "endpoint": True,
             "deployment": True
         },

@@ -26,7 +26,7 @@ The toolbox supports multiple AI providers:
 - Supports GPT-4 and other OpenAI models
 - Requires: `OPENAI_API_KEY` environment variable
 - Configuration:
-  - Model: Select the OpenAI model to use (default: gpt-4)
+  - Model: Select the OpenAI model to use (default: gpt-40-mini)
 
 ### Azure OpenAI
 
