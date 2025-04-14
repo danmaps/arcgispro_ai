@@ -67,7 +67,9 @@ The toolbox supports multiple AI providers:
 
 ## Installation
 
-1. Set up the required environment variables for your chosen AI provider(s):
+`pip install arcgispro_ai`
+
+Set up the required environment variables for your chosen AI provider(s):
 
    ```batch
    setx OPENAI_API_KEY "your-key-here"
@@ -76,7 +78,8 @@ The toolbox supports multiple AI providers:
    setx DEEPSEEK_API_KEY "your-key-here"
    ```
 
-2. For local LLM setup:
+### For local LLM setup
+
    - Deploy a compatible LLM server that implements the OpenAI chat completions API
    - Configure the endpoint URL in the tool interface (defaults to `http://localhost:8000`)
 
