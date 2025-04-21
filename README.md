@@ -16,7 +16,7 @@
 
 ## Quick Links
 - [GitHub](https://github.com/danmaps/arcgispro-ai-toolbox)
-- [Docs](https://github.com/danmaps/arcgispro-ai-toolbox/tree/main/docs)
+- [Docs](https://danmaps.github.io/arcgispro_ai/)
 
 ---
 
