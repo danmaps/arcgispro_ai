@@ -1,69 +1,48 @@
 # ArcGIS Pro AI Toolbox
 
-## Overview
+<p align="center">
+  <img src="docs/logo.png" alt="ArcGIS Pro AI Toolbox logo" height="80"/>
+</p>
 
-The ArcGIS Pro AI Toolbox is a Python-based toolbox designed to enhance the functionality of ArcGIS Pro by integrating AI capabilities. This toolbox allows users to interact with AI models, process geospatial data, and generate insights directly within the ArcGIS Pro environment. This is a BYOK (bring your own key) implementation.
+<p align="center">
+  <img src="https://img.shields.io/pypi/dw/arcgispro_ai" alt="PyPI - Downloads">
+</p>
 
-## Tools
+<p align="center">
+  <b>Your GIS, now AI‑supercharged.</b>
+</p>
 
-**Add AI Generated Field**: Add new fields with AI-generated text based on existing attributes and user-defined prompts.
+---
 
-**Get Map Info**: Extract information about your current map into a JSON file, providing context for other AI tools.
+## Quick Links
+- [GitHub](https://github.com/danmaps/arcgispro-ai-toolbox)
+- [Docs](https://github.com/danmaps/arcgispro-ai-toolbox/tree/main/docs)
+- [Esri Community](https://community.esri.com/)
 
-**Generate Python Code**: Create Python snippets tailored to your workflows and data context.
+---
 
-**Create AI Feature Layer**: Generate new feature layers using prompts to describe the data you need.
+## Why ArcGIS Pro AI Toolbox?
 
-**Convert Text to Numeric**: Quickly clean up inconsistent text formats and turn them into numeric fields.
+<blockquote>
+ArcGIS Pro AI Toolbox is the only BYOK, open‑source plugin that brings conversational AI, code generation, and prompt‑driven geoprocessing natively into ArcGIS Pro—no cloud hop, no proprietary credits.
+</blockquote>
 
-## Supported AI Providers
+- Install in minutes. Prompt, generate, map—directly inside ArcGIS Pro.
+- Works with OpenAI, Azure, Claude, DeepSeek, local LLMs, and more.
+- BYOK: Bring your own API key, keep your data private.
+- No cloud detour, no extra Esri credits, no code required.
 
-The toolbox supports multiple AI providers:
+---
 
-### OpenAI
+## Key Tools
 
-- Default provider
-- Supports GPT-4 and other OpenAI models
-- Requires: `OPENAI_API_KEY` environment variable
-- Configuration:
-  - Model: Select the OpenAI model to use (default: gpt-40-mini)
+- <b>Add AI Generated Field</b>: Create rich text from attributes using AI.
+- <b>Get Map Info</b>: Extract map context to JSON for smarter prompts.
+- <b>Generate Python Code</b>: ArcPy snippets tuned to your map.
+- <b>Create AI Feature Layer</b>: Describe data, get a layer.
+- <b>Convert Text to Numeric</b>: Standardize messy columns fast.
 
-### Azure OpenAI
-
-- Microsoft's Azure-hosted OpenAI service
-- Requires: `AZURE_OPENAI_API_KEY` environment variable
-- Configuration:
-  - Model: The deployed model name
-  - Endpoint: Your Azure OpenAI endpoint URL
-  - Deployment Name: The deployment name for your model
-
-### Claude (Anthropic)
-
-- Anthropic's Claude models
-- Requires: `ANTHROPIC_API_KEY` environment variable
-- Configuration:
-  - Model: Select Claude model (default: claude-3-opus-20240229)
-
-### DeepSeek
-
-- DeepSeek's language models
-- Requires: `DEEPSEEK_API_KEY` environment variable
-- Configuration:
-  - Model: Select DeepSeek model (default: deepseek-chat)
-
-### Local LLM
-
-- Run against a local LLM server
-- No API key required
-- Configuration:
-  - Endpoint: Server URL (default: http://localhost:8000)
-  - Must implement OpenAI-compatible chat completions API
-
-### Wolfram Alpha
-
-- For mathematical and computational queries
-- Requires: `WOLFRAM_ALPHA_API_KEY` environment variable
-- No additional configuration needed
+---
 
 ## Installation
 
@@ -92,6 +71,18 @@ Set up the required environment variables for your chosen AI provider(s):
 
 Each tool will use the selected provider to generate responses, with automatic fallback to OpenAI if the selected provider is not configured.
 
+## Supported AI Providers
+
+- <b>OpenAI</b>: GPT-4 and more (requires `OPENAI_API_KEY`)
+- <b>Azure OpenAI</b>: Microsoft-hosted (requires `AZURE_OPENAI_API_KEY`)
+- <b>Claude (Anthropic)</b>: (requires `ANTHROPIC_API_KEY`)
+- <b>DeepSeek</b>: (requires `DEEPSEEK_API_KEY`)
+- <b>Local LLM</b>: No API key needed, OpenAI-compatible API
+- <b>Wolfram Alpha</b>: For math/computation (requires `WOLFRAM_ALPHA_API_KEY`)
+
 ## Contributing
 
 Make an issue or create a branch for your feature or bug fix, and submit a pull request.
+
+---
+
