@@ -1,6 +1,9 @@
 # .github/workflows/publish.yml
 name: Publish to PyPI and GitHub Release
 
+permissions:
+  contents: write  # Needed to create releases
+
 on:
   push:
     tags:
