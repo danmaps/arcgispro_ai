@@ -18,3 +18,4 @@ esri/toolboxes/arcgispro_ai/core/__pycache__/*
 build/
 dist/
 venv/
+.ra-aid/
