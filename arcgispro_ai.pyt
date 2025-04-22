@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-arcgispro_ai_0.0.3.pyt - Monolithic Python Toolbox
+arcgispro_ai.pyt - Monolithic Python Toolbox
 This file is auto-generated. Do not edit directly.
 """
 
