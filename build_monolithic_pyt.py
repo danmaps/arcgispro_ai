@@ -81,7 +81,7 @@ def main():
         toolbox_code = f.read()
 
     # Read template
-    template_file = root / 'arcgispro_ai_0.0.6.pyt'
+    template_file = root / 'arcgispro_ai.pyt'
     with open(template_file, 'r', encoding='utf-8') as f:
         template = f.read()
 
@@ -95,7 +95,7 @@ def main():
     )
 
     # Write output
-    out_file = root / f'arcgispro_ai_0.0.6.pyt'
+    out_file = root / f'arcgispro_ai.pyt'
     with open(out_file, 'w', encoding='utf-8') as f:
         f.write(result)
     print(f"Monolithic .pyt written to {out_file}")

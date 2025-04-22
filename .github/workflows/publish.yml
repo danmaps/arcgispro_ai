@@ -29,15 +29,9 @@ jobs:
           FLIT_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
         run: flit publish
 
-      - name: Get version from setup.py
-        id: get_version
-        run: |
-          VERSION=$(python -c "import re; f=open('setup.py'); print(re.search(r'version\\s*=\\s*[\'\"]([\\d\\.]+)[\'\"]', f.read()).group(1))")
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-
       - name: Upload .pyt to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: arcgispro_ai_${{ steps.get_version.outputs.version }}.pyt
+          files: arcgispro_ai.pyt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
