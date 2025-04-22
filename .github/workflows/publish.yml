@@ -23,15 +23,15 @@ jobs:
       - name: Build monolithic .pyt
         run: python build_monolithic_pyt.py
 
-      - name: Publish to PyPI
-        env:
-          FLIT_USERNAME: __token__
-          FLIT_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
-        run: flit publish
-
       - name: Upload .pyt to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: arcgispro_ai.pyt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish to PyPI
+        env:
+          FLIT_USERNAME: __token__
+          FLIT_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
+        run: flit publish
