@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="arcgispro_ai",
-    version="0.0.8",
+    version="0.0.9",
     author="Danny McVey",
     author_email="dannybmcvey@gmail.com",
     description="AI tools for ArcGIS Pro",
