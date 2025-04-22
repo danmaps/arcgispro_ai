@@ -1,0 +1,43 @@
+# .github/workflows/publish.yml
+name: Publish to PyPI and GitHub Release
+
+on:
+  push:
+    tags:
+      - 'v*'  # Triggers on version tags like v0.0.3
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install flit
+        run: pip install flit
+
+      - name: Build monolithic .pyt
+        run: python build_monolithic_pyt.py
+
+      - name: Publish to PyPI
+        env:
+          FLIT_USERNAME: ${{ secrets.PYPI_USERNAME }}
+          FLIT_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
+        run: flit publish
+
+      - name: Get version from setup.py
+        id: get_version
+        run: |
+          VERSION=$(python -c "import re; f=open('setup.py'); print(re.search(r'version\\s*=\\s*[\'\"]([\\d\\.]+)[\'\"]', f.read()).group(1))")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Upload .pyt to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: arcgispro_ai_${{ steps.get_version.outputs.version }}.pyt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
