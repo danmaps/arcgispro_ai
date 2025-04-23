@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Add AI-Generated Field – ArcGIS Pro AI Toolbox</title>
+  <link rel="stylesheet" href="index.html">
+  <style>
+    body {
+      font-family: Inter, Arial, sans-serif;
+      margin: 0;
+      color: #223;
+      background: linear-gradient(135deg, #f0f4ff 0%, #f7f9fb 100%);
+      display: flex;
+    }
+    .sidebar {
+      width: 250px;
+      background: #e0e7ff;
+      padding: 1.5rem;
+      box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
+    }
+    .sidebar h3 {
+      font-size: 1.2rem;
+      color: #2a3a7a;
+      margin-bottom: 1rem;
+    }
+    .sidebar a {
+      display: block;
+      color: #4f8cff;
+      text-decoration: none;
+      margin: 0.5rem 0;
+      font-size: 1rem;
+    }
+    .sidebar a:hover {
+      text-decoration: underline;
+    }
+    .content {
+      flex: 1;
+      padding: 2.5rem;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 2px 16px rgba(60, 80, 200, 0.07);
+      margin: 2.5rem;
+    }
+    h1 {
+      color: #2a3a7a;
+      font-size: 2rem;
+      margin-bottom: 0.5em;
+    }
+    h2 {
+      color: #4f8cff;
+      font-size: 1.2rem;
+      margin-top: 2.2em;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 1.2em 0;
+    }
+    th, td {
+      border: 1px solid #e0e7ef;
+      padding: 0.6em 0.8em;
+      text-align: left;
+    }
+    th {
+      background: #f0f4ff;
+      color: #2a3a7a;
+    }
+    tr:nth-child(even) {
+      background: #f8fafc;
+    }
+    .param-desc {
+      color: #3a4a5d;
+      font-size: 0.98em;
+    }
+    code {
+      background: #eef2f7;
+      border-radius: 4px;
+      padding: 2px 6px;
+    }
+  </style>
+</head>
+<body>
+  <div class="sidebar">
+    <h3>Navigation</h3>
+    <a href="index.html">Home</a>
+    <a href="FeatureLayer.html">Create AI Feature Layer</a>
+    <a href="Field.html">Add AI-Generated Field</a>
+    <a href="GetMapInfo.html">Get Map Info</a>
+    <a href="Python.html">Generate Python Code</a>
+    <a href="ConvertTextToNumeric.html">Convert Text to Numeric</a>
+  </div>
+  <div class="content">
+    <h1>Add AI-Generated Field</h1>
+    <p>This tool adds a new attribute field to a feature layer, using AI to generate text for each feature based on your prompt. Prompts can reference existing attributes and optionally filter features using SQL.</p>
+    <h2>Usage</h2>
+    <ol>
+      <li>Open ArcGIS Pro and add the <code>.pyt</code> toolbox if you haven't already.</li>
+      <li>Open the <strong>Add AI-Generated Field</strong> tool.</li>
+      <li>Fill in the parameters as described below.</li>
+      <li>Click <strong>Run</strong>. The output layer will have a new field with AI-generated values.</li>
+    </ol>
+    <h2>Parameters</h2>
+    <table>
+      <tr><th>Name</th><th>Type</th><th>Required</th><th>Description</th></tr>
+      <tr><td>Source</td><td>String (Choice)</td><td>Yes</td><td class="param-desc">AI provider to use (OpenAI, Azure OpenAI, Claude, DeepSeek, Local LLM, Wolfram Alpha).</td></tr>
+      <tr><td>Model</td><td>String</td><td>No</td><td class="param-desc">The AI model to use. Choices depend on the selected source.</td></tr>
+      <tr><td>Endpoint</td><td>String</td><td>No</td><td class="param-desc">Custom endpoint for Azure or local models (if applicable).</td></tr>
+      <tr><td>Deployment Name</td><td>String</td><td>No</td><td class="param-desc">Deployment name for Azure OpenAI (if applicable).</td></tr>
+      <tr><td>Input Layer</td><td>Feature Layer</td><td>Yes</td><td class="param-desc">The input feature layer to add the field to.</td></tr>
+      <tr><td>Output Layer</td><td>Feature Layer</td><td>Yes</td><td class="param-desc">The output feature layer with the new field.</td></tr>
+      <tr><td>Field Name</td><td>String</td><td>Yes</td><td class="param-desc">Name of the new field to add.</td></tr>
+      <tr><td>Prompt</td><td>String</td><td>Yes</td><td class="param-desc">Prompt for the AI to generate field values. You can reference attributes using curly braces, e.g. <code>{NAME}</code>.</td></tr>
+      <tr><td>SQL Query</td><td>String</td><td>No</td><td class="param-desc">Optional SQL query to filter which features are updated.</td></tr>
+    </table>
+    <h2>Tips</h2>
+    <ul>
+      <li>Reference existing fields in your prompt, e.g. <code>"Summarize the land use for {NAME}."</code></li>
+      <li>Use the <strong>SQL Query</strong> to limit which features get new values.</li>
+      <li>Try different models for different styles or languages.</li>
+    </ul>
+  </div>
+</body>
+</html>
