@@ -67,8 +67,7 @@ def update_model_parameters(source: str, parameters: list, current_model: str = 
             api_key = get_env_var("OPENAI_API_KEY")
             client = OpenAIClient(api_key)
             config["models"] = client.get_available_models()
-            if config["models"]:  # If we got models from the API
-                config["default"] = "gpt-4" if "gpt-4" in config["models"] else config["models"][0]
+            
         except Exception:
             # If fetching fails, use default hardcoded models
             config["models"] = ["gpt-4o-mini", "gpt-3.5-turbo", "gpt-4", "gpt-4-turbo-preview"]
