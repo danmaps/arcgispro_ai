@@ -106,9 +106,9 @@
       <tr><td>Model</td><td>String</td><td>No</td><td class="param-desc">The AI model to use. Choices depend on the selected source.</td></tr>
       <tr><td>Endpoint</td><td>String</td><td>No</td><td class="param-desc">Custom endpoint for Azure or local models (if applicable).</td></tr>
       <tr><td>Deployment Name</td><td>String</td><td>No</td><td class="param-desc">Deployment name for Azure OpenAI (if applicable).</td></tr>
-      <tr><td>Layers for Context</td><td>Feature Layer (MultiValue)</td><td>No</td><td class="param-desc">Optional layers to provide context for the AI when generating code.</td></tr>
+      <tr><td>Layers for Context</td><td>Feature Layer (MultiValue)</td><td>No</td><td class="param-desc">Optional layers to provide specific context for the AI when generating code. This includes the schema and a data sample (first 5 records).</td></tr>
       <tr><td>Prompt</td><td>String</td><td>Yes</td><td class="param-desc">Describe the Python code you want to generate. Be specific for better results.</td></tr>
-      <tr><td>Context</td><td>String</td><td>No</td><td class="param-desc">Additional context to pass to the AI for generating code.</td></tr>
+      <tr><td>Context</td><td>String</td><td>No</td><td class="param-desc">Map context which will be passed to the AI. This is dynamically generated using the current map and selected layers from the <code>Layers for Context</code> parameter. For a detailed look at how this information is gathered see the <a href="GetMapInfo.html">Get Map Info</a> tool.</td></tr>
     </table>
     <h2>Tips</h2>
     <ul>
