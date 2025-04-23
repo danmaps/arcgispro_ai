@@ -1,0 +1,296 @@
+/* Main styles for ArcGIS Pro AI Toolbox documentation */
+body {
+  font-family: Inter, Arial, sans-serif;
+  margin: 0;
+  color: #223;
+  background: #ffffff;
+}
+
+/* Tool pages use flex layout */
+body.tool-page {
+  display: flex;
+}
+
+/* Sidebar styles */
+.sidebar {
+  width: 250px;
+  background: #143366;
+  padding: 0;
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.2);
+}
+
+.sidebar-header {
+  background: #ffffff;
+  padding: 1.2rem 0;
+  text-align: center;
+  margin-bottom: 0;
+}
+
+.logo-link {
+  display: block;
+  text-decoration: none;
+  color: #143366;
+  font-weight: 600;
+  font-size: 1.1rem;
+  padding: 0 1rem;
+}
+
+.sidebar-nav {
+  padding: 1.5rem;
+}
+
+/* Reset the !important rule and make navigation links white again */
+.sidebar-nav a {
+  color: #ffffff;
+}
+
+.sidebar a {
+  display: block;
+  text-decoration: none;
+  margin: 0.5rem 0;
+  font-size: 1rem;
+}
+
+.sidebar a:hover {
+  text-decoration: underline;
+  color: #e0e0e0;
+}
+
+/* Content area styles */
+.content {
+  flex: 1;
+  padding: 2.5rem;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 16px rgba(20, 51, 102, 0.15);
+  margin: 2.5rem;
+}
+
+h1 {
+  color: #143366;
+  font-size: 2rem;
+  margin-bottom: 0.5em;
+}
+
+h2 {
+  color: #143366;
+  font-size: 1.2rem;
+  margin-top: 2.2em;
+}
+
+/* Table styles */
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1.2em 0;
+}
+
+th, td {
+  border: 1px solid #c0c8d0;
+  padding: 0.6em 0.8em;
+  text-align: left;
+}
+
+th {
+  background: #143366;
+  color: #ffffff;
+}
+
+tr:nth-child(even) {
+  background: #f0f0f0;
+}
+
+.param-desc {
+  color: #333;
+  font-size: 0.98em;
+}
+
+/* Code block styles */
+code {
+  background: #e0e5f0;
+  border-radius: 4px;
+  padding: 2px 6px;
+}
+
+/* Homepage specific styles */
+header {
+  display: flex;
+  align-items: center;
+  padding: 2rem 8%;
+  background: #ffffff;
+  color: #143366;
+  border-bottom: 2px solid #e0e5f0;
+}
+
+header img {
+  height: 64px;
+  margin-right: 1rem;
+}
+
+header h1 {
+  color: #143366;
+}
+
+.hero {
+  padding: 3.5rem 8% 2.5rem 8%;
+  text-align: center;
+  background: #143366;
+  color: #ffffff;
+  border-radius: 0 0 18px 18px;
+  box-shadow: 0 2px 16px rgba(20, 51, 102, 0.25);
+  margin-bottom: 2.5rem;
+}
+
+.hero h1 {
+  font-size: 2.7rem;
+  font-weight: 700;
+  margin-bottom: 0.7rem;
+  letter-spacing: -1px;
+  color: #ffffff;
+}
+
+.hero h2 {
+  font-size: 1.25rem;
+  font-weight: 400;
+  margin: 0 0 2.2rem 0;
+  color: #f0f0f0;
+}
+
+.cta {
+  display: inline-block;
+  background: #ffffff;
+  color: #143366;
+  padding: 1.1rem 2.3rem;
+  border-radius: 6px;
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 1.15rem;
+  box-shadow: 0 4px 18px 0 rgba(255, 255, 255, 0.2);
+  transition: background 0.2s, box-shadow 0.2s;
+  margin-bottom: 1.2rem;
+  border: 2px solid #ffffff;
+}
+
+.cta:hover {
+  background: #f0f0f0;
+  box-shadow: 0 6px 24px 0 rgba(255, 255, 255, 0.3);
+}
+
+.api-key-details {
+  max-width: 440px;
+  margin: 1.5rem auto 0 auto;
+  background: #ffffff;
+  border: 1.5px solid #143366;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(20, 51, 102, 0.15);
+  padding: 1.3rem 1.7rem 1.2rem 1.7rem;
+  text-align: left;
+  font-size: 1.01rem;
+  color: #333;
+}
+
+.api-key-details summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 1.08em;
+  outline: none;
+  color: #143366;
+}
+
+.api-key-details ol, .api-key-details ul {
+  margin-left: 1.2em;
+  margin-top: 1em;
+  margin-bottom: 1em;
+}
+
+.api-key-details h4 {
+  margin-top: 1.2em;
+  margin-bottom: 0.5em;
+  font-size: 1.03em;
+  font-weight: 600;
+  color: #143366;
+}
+
+/* Features section */
+.features {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.7rem;
+  margin: 2.2rem auto 2.5rem auto;
+  max-width: 900px;
+  padding: 0 1rem;
+}
+
+.feature {
+  background: #ffffff;
+  border: 1.5px solid #143366;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(20, 51, 102, 0.1);
+  padding: 1.3rem 1.2rem 1.1rem 1.2rem;
+  text-align: left;
+  min-height: 120px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  transition: box-shadow 0.18s, border 0.18s;
+}
+
+.feature:hover {
+  box-shadow: 0 4px 18px rgba(20, 51, 102, 0.2);
+  border: 1.5px solid #143366;
+}
+
+.feature h4 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.13rem;
+  font-weight: 600;
+  color: #143366;
+}
+
+.feature p {
+  margin: 0;
+  color: #333;
+  font-size: 1.01rem;
+}
+
+#features h3, #docs h3 {
+  text-align: center;
+  font-size: 1.35rem;
+  margin-top: 0;
+  margin-bottom: 0.7rem;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  color: #143366;
+}
+
+#docs {
+  text-align: center;
+  margin-top: 2.5rem;
+  margin-bottom: 2.5rem;
+}
+
+#docs p {
+  margin: 0.7rem 0 0 0;
+  font-size: 1.05rem;
+}
+
+#docs a, .api-key-details a {
+  color: #143366;
+  text-decoration: underline;
+  transition: color 0.15s;
+}
+
+#docs a:hover, .api-key-details a:hover {
+  color: #0b2144;
+}
+
+footer {
+  text-align: center;
+  color: #ffffff;
+  font-size: 0.98rem;
+  padding: 2.2rem 0 1.2rem 0;
+  background: #143366;
+  border-top: 2px solid #0b2144;
+  margin-top: 0;
+}

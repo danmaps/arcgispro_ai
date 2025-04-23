@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Get Map Info – ArcGIS Pro AI Toolbox</title>
+  <link rel="stylesheet" href="../style.css">
+  <script src="../navigation.js"></script>
+</head>
+<body>
+  <div class="content">
+    <h1>Get Map Info</h1>
+    <p>This tool exports information about a map in your ArcGIS Pro project to a JSON file. Use it to capture map structure, layers, and other metadata for use in AI workflows or documentation.</p>
+    <h2>Usage</h2>
+    <ol>
+      <li>Open ArcGIS Pro and add the <code>.pyt</code> toolbox if you haven't already.</li>
+      <li>Open the <strong>Get Map Info</strong> tool.</li>
+      <li>Fill in the parameters as described below.</li>
+      <li>Click <strong>Run</strong>. The tool will write map info to the specified JSON file.</li>
+    </ol>
+    <h2>Parameters</h2>
+    <table>
+      <tr><th>Name</th><th>Type</th><th>Required</th><th>Description</th></tr>
+      <tr><td>Map</td><td>Map</td><td>No</td><td class="param-desc">The map to get info from. If not specified, uses the current map.</td></tr>
+      <tr><td>Output JSON Path</td><td>String (Path)</td><td>Yes</td><td class="param-desc">Path to the output JSON file where map info will be saved.</td></tr>
+    </table>
+    <h2>Tips</h2>
+    <ul>
+      <li>If you leave the <strong>Map</strong> parameter blank, the tool will use the active map in your project.</li>
+      <li>The output JSON can be used as context for AI tools or for documentation.</li>
+    </ul>
+  </div>
+</body>
+</html>

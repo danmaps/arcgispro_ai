@@ -5,177 +5,8 @@
 <title>ArcGIS Pro AI Toolbox</title>
 <link rel="icon" href="favicon.ico" type="image/x-icon">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
-<style>
-body {
-  font-family: Inter,Arial,sans-serif;
-  margin: 0;
-  color: #223;
-  background: linear-gradient(135deg, #f0f4ff 0%, #f7f9fb 100%);
-}
-header {
-  display: flex;
-  align-items: center;
-  padding: 2rem 8%;
-  background: linear-gradient(90deg, #e0e7ff 60%, #f7f9fb 100%);
-  border-bottom: 2px solid #b6c6f5;
-}
-header img {
-  height: 64px;
-  margin-right: 1rem;
-}
-h1 {
-  margin: 0;
-  font-size: 2.5rem;
-  color: #2a3a7a;
-}
-.hero {
-  padding: 3.5rem 8% 2.5rem 8%;
-  text-align: center;
-  background: linear-gradient(120deg, #e0e7ff 60%, #f7f9fb 100%);
-  border-radius: 0 0 18px 18px;
-  box-shadow: 0 2px 16px rgba(60,80,200,0.07);
-  margin-bottom: 2.5rem;
-}
-.hero h1 {
-  font-size: 2.7rem;
-  font-weight: 700;
-  margin-bottom: 0.7rem;
-  letter-spacing: -1px;
-  color: #2a3a7a;
-}
-.hero h2 {
-  font-size: 1.25rem;
-  font-weight: 400;
-  margin: 0 0 2.2rem 0;
-  color: #3a4a5d;
-}
-.cta {
-  display: inline-block;
-  background: linear-gradient(90deg, #4f8cff 60%, #2a3a7a 100%);
-  color: #fff;
-  padding: 1.1rem 2.3rem;
-  border-radius: 6px;
-  text-decoration: none;
-  font-weight: 700;
-  font-size: 1.15rem;
-  box-shadow: 0 4px 18px 0 #b6c6f5;
-  transition: background 0.2s, box-shadow 0.2s;
-  margin-bottom: 1.2rem;
-  border: 2px solid #4f8cff;
-}
-.cta:hover {
-  background: linear-gradient(90deg, #2a3a7a 60%, #4f8cff 100%);
-  box-shadow: 0 6px 24px 0 #4f8cff44;
-}
-.api-key-details {
-  max-width: 440px;
-  margin: 1.5rem auto 0 auto;
-  background: #f0f4ff;
-  border: 1.5px solid #b6c6f5;
-  border-radius: 10px;
-  box-shadow: 0 2px 8px rgba(60,80,200,0.06);
-  padding: 1.3rem 1.7rem 1.2rem 1.7rem;
-  text-align: left;
-  font-size: 1.01rem;
-}
-.api-key-details summary {
-  cursor: pointer;
-  font-weight: 600;
-  font-size: 1.08em;
-  outline: none;
-  color: #2a3a7a;
-}
-.api-key-details ol, .api-key-details ul {
-  margin-left: 1.2em;
-  margin-top: 1em;
-  margin-bottom: 1em;
-}
-.api-key-details code {
-  background: #e0e7ff;
-  border-radius: 4px;
-  padding: 2px 6px;
-  font-size: 0.98em;
-}
-.api-key-details h4 {
-  margin-top: 1.2em;
-  margin-bottom: 0.5em;
-  font-size: 1.03em;
-  font-weight: 600;
-  color: #2a3a7a;
-}
-.features {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 1.7rem;
-  margin: 2.2rem auto 2.5rem auto;
-  max-width: 900px;
-  padding: 0 1rem;
-}
-.feature {
-  background: linear-gradient(120deg, #f0f4ff 60%, #f8fafc 100%);
-  border: 1.5px solid #b6c6f5;
-  border-radius: 10px;
-  box-shadow: 0 2px 8px rgba(60,80,200,0.04);
-  padding: 1.3rem 1.2rem 1.1rem 1.2rem;
-  text-align: left;
-  min-height: 120px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: flex-start;
-  transition: box-shadow 0.18s, border 0.18s;
-}
-.feature:hover {
-  box-shadow: 0 4px 18px rgba(60,80,200,0.10);
-  border: 1.5px solid #4f8cff;
-}
-.feature h4 {
-  margin: 0 0 0.5rem 0;
-  font-size: 1.13rem;
-  font-weight: 600;
-  color: #2a3a7a;
-}
-.feature p {
-  margin: 0;
-  color: #3a4a5d;
-  font-size: 1.01rem;
-}
-#features h3, #docs h3 {
-  text-align: center;
-  font-size: 1.35rem;
-  margin-top: 0;
-  margin-bottom: 0.7rem;
-  font-weight: 700;
-  letter-spacing: -0.5px;
-  color: #4f8cff;
-}
-#docs {
-  text-align: center;
-  margin-top: 2.5rem;
-  margin-bottom: 2.5rem;
-}
-#docs p {
-  margin: 0.7rem 0 0 0;
-  font-size: 1.05rem;
-}
-#docs a, .api-key-details a {
-  color: #4f8cff;
-  text-decoration: underline;
-  transition: color 0.15s;
-}
-#docs a:hover, .api-key-details a:hover {
-  color: #2a3a7a;
-}
-footer {
-  text-align: center;
-  color: #7a8a9a;
-  font-size: 0.98rem;
-  padding: 2.2rem 0 1.2rem 0;
-  background: none;
-  border-top: 2px solid #b6c6f5;
-  margin-top: 0;
-}
-</style>
+<link rel="stylesheet" href="style.css">
+<script src="navigation.js"></script>
 </head>
 <body>
 <header>
@@ -211,33 +42,33 @@ footer {
 
 <section id="features">
   <h3>The Tools</h3>
-  <table style="width:80%; border-collapse:collapse; margin: 2rem auto; text-align:left;">
+  <table style="width:80%; margin: 2rem auto;">
     <thead>
-      <tr style="background:#f0f4ff;">
-        <th style="padding:0.8rem; border:1px solid #e0e7ef;">Tool Name</th>
-        <th style="padding:0.8rem; border:1px solid #e0e7ef;">Description</th>
+      <tr>
+        <th>Tool Name</th>
+        <th>Description</th>
       </tr>
     </thead>
     <tbody>
       <tr>
-        <td style="padding:0.8rem; border:1px solid #e0e7ef;"><a href="FeatureLayer.html" style="color:#4f8cff; text-decoration:underline;">Create AI Feature Layer</a></td>
-        <td style="padding:0.8rem; border:1px solid #e0e7ef;">Generate a new feature layer using AI based on your prompt.</td>
+        <td><a href="tools/FeatureLayer.html">Create AI Feature Layer</a></td>
+        <td>Generate a new feature layer using AI based on your prompt.</td>
       </tr>
       <tr>
-        <td style="padding:0.8rem; border:1px solid #e0e7ef;"><a href="Field.html" style="color:#4f8cff; text-decoration:underline;">Add AI-Generated Field</a></td>
-        <td style="padding:0.8rem; border:1px solid #e0e7ef;">Add a new attribute field to feature layers with AI-generated text.</td>
+        <td><a href="tools/Field.html">Add AI-Generated Field</a></td>
+        <td>Add a new attribute field to feature layers with AI-generated text.</td>
       </tr>
       <tr>
-        <td style="padding:0.8rem; border:1px solid #e0e7ef;"><a href="GetMapInfo.html" style="color:#4f8cff; text-decoration:underline;">Get Map Info</a></td>
-        <td style="padding:0.8rem; border:1px solid #e0e7ef;">Export map information to a JSON file for use in AI workflows.</td>
+        <td><a href="tools/GetMapInfo.html">Get Map Info</a></td>
+        <td>Export map information to a JSON file for use in AI workflows.</td>
       </tr>
       <tr>
-        <td style="padding:0.8rem; border:1px solid #e0e7ef;"><a href="Python.html" style="color:#4f8cff; text-decoration:underline;">Generate Python Code</a></td>
-        <td style="padding:0.8rem; border:1px solid #e0e7ef;">Create Python code snippets tailored to your map and prompt.</td>
+        <td><a href="tools/Python.html">Generate Python Code</a></td>
+        <td>Create Python code snippets tailored to your map and prompt.</td>
       </tr>
       <tr>
-        <td style="padding:0.8rem; border:1px solid #e0e7ef;"><a href="ConvertTextToNumeric.html" style="color:#4f8cff; text-decoration:underline;">Convert Text to Numeric</a></td>
-        <td style="padding:0.8rem; border:1px solid #e0e7ef;">Convert text fields in a feature layer to numeric values using AI.</td>
+        <td><a href="tools/ConvertTextToNumeric.html">Convert Text to Numeric</a></td>
+        <td>Convert text fields in a feature layer to numeric values using AI.</td>
       </tr>
     </tbody>
   </table>
