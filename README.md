@@ -45,10 +45,6 @@ ArcGIS Pro AI Toolbox is the only BYOK, open‑source plugin that brings conver
 
 ## Installation
 
----
-
-## How to Use the ArcGIS Pro AI Toolbox
-
 There are two ways to get started with the ArcGIS Pro AI Toolbox:
 
 1. **The Simple Way (Recommended):**
@@ -67,7 +63,7 @@ There are two ways to get started with the ArcGIS Pro AI Toolbox:
       `C:\Users\<username>\AppData\Local\Programs\Python\Python<version>\Lib\site-packages\arcgispro_ai\toolboxes
    ```
 
-## Environment Variables?
+## Environment Variables, 
 
 Set up the required environment variables for your chosen AI provider(s):
 
