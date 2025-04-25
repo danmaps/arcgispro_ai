@@ -10,6 +10,11 @@
   <div class="content">
     <h1>Get Map Info</h1>
     <p>This tool exports information about a map in your ArcGIS Pro project to a JSON file. Use it to capture map structure, layers, and other metadata for use in AI workflows or documentation.</p>
+    
+    <p>This tool does not use AI, instead it uses plain ol arcpy to make your map context actionable FOR ai tools. For example, try asking any LLM for an arcpy script to do an analysis, then try again after including the output of this tool as additional context... you'll likely see much better results.</p>
+    
+    <p>Fun fact, this is the same method used in the generate python code tool to send information about selected layers to the AI.</p>
+    
     <h2>Usage</h2>
     <ol>
       <li>Open ArcGIS Pro and add the <code>.pyt</code> toolbox if you haven't already.</li>
