@@ -45,7 +45,29 @@ ArcGIS Pro AI Toolbox is the only BYOK, open‑source plugin that brings conver
 
 ## Installation
 
-`pip install arcgispro_ai`
+---
+
+## How to Use the ArcGIS Pro AI Toolbox
+
+There are two ways to get started with the ArcGIS Pro AI Toolbox:
+
+1. **The Simple Way (Recommended):**
+   - Download the toolbox directly from [the arcgispro_ai website](https://danmaps.github.io/arcgispro_ai).
+   - Set up the required environment variables for your chosen AI provider(s)
+   - Add the downloaded `.pyt` file to ArcGIS Pro and start using the tools immediately.
+
+2. **The Python Way (For Advanced Users):**
+   - Install the package via pip:
+     ```bash
+     pip install arcgispro_ai
+     ```
+   - Set up the required environment variables for your chosen AI provider(s)
+   - Use the tools programmatically or within ArcGIS Pro by referencing the installed package. This requires an import of the toolbox from a path like
+   ```bash
+      `C:\Users\<username>\AppData\Local\Programs\Python\Python<version>\Lib\site-packages\arcgispro_ai\toolboxes
+   ```
+
+## Environment Variables?
 
 Set up the required environment variables for your chosen AI provider(s):
 
@@ -56,10 +78,12 @@ Set up the required environment variables for your chosen AI provider(s):
    setx DEEPSEEK_API_KEY "your-key-here"
    ```
 
-### For local LLM setup
+## For local LLM setup
 
-   - Deploy a compatible LLM server that implements the OpenAI chat completions API
-   - Configure the endpoint URL in the tool interface (defaults to `http://localhost:8000`)
+- Deploy a compatible LLM server that implements the OpenAI chat completions API. That's up to you to figure out. idk, ask ChatGPT.
+- Make sure to configure the endpoint URL to `http://localhost:8000` or you'll have to override it every time you want to run a tool.
+
+---
 
 ## Usage
 
