@@ -63,7 +63,7 @@ There are two ways to get started with the ArcGIS Pro AI Toolbox:
       `C:\Users\<username>\AppData\Local\Programs\Python\Python<version>\Lib\site-packages\arcgispro_ai\toolboxes
    ```
 
-## Environment Variables, 
+## Environment Variables
 
 Set up the required environment variables for your chosen AI provider(s):
 
