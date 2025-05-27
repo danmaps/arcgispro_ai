@@ -1,8 +1,8 @@
-# Product Requirements Document: Generate Reusable Tool
+# Product Requirements Document: Generate Tool
 
 ## Overview
 
-"Generate Reusable Tool" is a new geoprocessing tool for ArcGIS Pro that transforms a rough Python code sample (or optionally a natural language prompt) into a fully functional, documented, and parameterized Python toolbox (`.pyt`). It serves as the final step in the AI-assisted geospatial workflow, helping users deploy their scripts as reusable tools for themselves or their teams.
+"Generate Tool" is a new geoprocessing tool for ArcGIS Pro that transforms a rough Python code sample (or optionally a natural language prompt) into a fully functional, documented, and parameterized Python toolbox (`.pyt`). It serves as the final step in the AI-assisted geospatial workflow, helping users deploy their scripts as reusable tools for themselves or their teams.
 
 If the user provides only a natural language prompt, this tool calls the existing **Generate Python Code** tool under the hood to produce a starting script before generating the `.pyt` file.
 
@@ -90,6 +90,3 @@ Automate the creation of `.pyt` toolboxes to reduce friction in sharing, scaling
 * Time saved vs manual `.pyt` creation
 * % of tools generated that run successfully on first try
 * Adoption by internal GIS teams and feedback collected
-
----
-
