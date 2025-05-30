@@ -791,9 +791,7 @@ class ConvertTextToNumeric(object):
         field_values = []
         with arcpy.da.SearchCursor(in_layer, [field]) as cursor:
             for row in cursor:
-                field_values.append(row[0])
-
-        # Convert the entire series using the selected AI provider
+                field_values.append(row[0])        # Convert the entire series using the selected AI provider
         kwargs = {}
         if model:
             kwargs["model"] = model
@@ -802,7 +800,7 @@ class ConvertTextToNumeric(object):
         if deployment:
             kwargs["deployment_name"] = deployment
 
-        converted_values = get_client(api_key, source, **kwargs).convert_series_to_numeric(field_values)
+        converted_values = get_client(source, api_key, **kwargs).convert_series_to_numeric(field_values)
 
         # Add a new field to store the converted numeric values
         field_name_new = f"{field}_numeric"
@@ -822,7 +820,7 @@ class ConvertTextToNumeric(object):
 class GenerateTool(object):
     def __init__(self):
         """Define the tool (tool name is the name of the class)."""
-        self.label = "Generate Reusable Tool"
+        self.label = "Generate Tool"
         self.description = "Transforms a Python code sample or natural language prompt into a fully functional, documented, and parameterized Python toolbox (.pyt)"
         self.canRunInBackground = False
 
@@ -877,8 +875,8 @@ class GenerateTool(object):
             direction="Input",
         )
         input_type.filter.type = "ValueList"
-        input_type.filter.list = ["Python Code", "Natural Language Prompt"]
-        input_type.value = "Python Code"
+        input_type.filter.list = ["Natural Language Prompt", "Python Code"]
+        input_type.value = "Natural Language Prompt"
 
         input_code = arcpy.Parameter(
             displayName="Python Code",
@@ -887,7 +885,7 @@ class GenerateTool(object):
             parameterType="Optional",
             direction="Input",
         )
-        input_code.enabled = True
+        input_code.enabled = False
         input_code.controlCLSID = '{E5456E51-0C41-4797-9EE4-5269820C6F0E}'
 
         input_prompt = arcpy.Parameter(
@@ -897,7 +895,7 @@ class GenerateTool(object):
             parameterType="Optional",
             direction="Input",
         )
-        input_prompt.enabled = False
+        input_prompt.enabled = True
 
         toolbox_name = arcpy.Parameter(
             displayName="Toolbox Name",
@@ -924,6 +922,14 @@ class GenerateTool(object):
             parameterType="Required",
             direction="Input",
         )
+        # Try to set current project home folder as default
+        try:
+            aprx = arcpy.mp.ArcGISProject("CURRENT")
+            if aprx and aprx.homeFolder:
+                output_path.value = aprx.homeFolder
+        except:
+            # If we can't access the current project, leave it blank
+            pass
 
         advanced_mode = arcpy.Parameter(
             displayName="Advanced Mode",
@@ -1076,10 +1082,9 @@ class GenerateTool(object):
             arcpy.AddMessage("Using provided Python code as input")
         else:  # Natural Language Prompt
             arcpy.AddMessage("Generating Python code from natural language prompt...")
-            # Create a default context for code generation
-            context_json = {"map": map_to_json(), "layers": []}
-            
-            try:
+            # Create a minimal context - no map info needed for this tool
+            context_json = {"layers": []}
+              try:
                 # Use the existing generate_python function to convert prompt to code
                 python_code = generate_python(
                     api_key,
@@ -1135,10 +1140,9 @@ Requirements:
             prompt_text += f"Use the following parameter structure: {json.dumps(param_structure, indent=2)}"
             
         arcpy.AddMessage("Generating toolbox code...")
-        
         try:
             # Generate the toolbox code using the AI model
-            client = get_client(api_key, source, **kwargs)
+            client = get_client(source, api_key, **kwargs)
             response = client.generate_text(prompt_text)
             
             if not response:
