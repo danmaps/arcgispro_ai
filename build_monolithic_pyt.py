@@ -25,27 +25,30 @@ def extract_imports(source_code):
 
 
 def inline_code(files):
-    """Concatenate code from a list of files, skipping __main__ blocks and duplicate imports."""
     seen_imports = set()
     code_blocks = []
     for file in files:
         with open(file, 'r', encoding='utf-8') as f:
             code = f.read()
-        # Remove if __name__ == '__main__' blocks
-        code = re.sub(r"if __name__ ?== ?['\"]__main__['\"]:.*", '', code, flags=re.DOTALL)
+        # Remove if __name__ == '__main__' blocks (handle indentation)
+        code = re.sub(r"^([ \t]*)if __name__ ?== ?['\"]__main__['\"]:.*?(?=^\S|\Z)", '', code, flags=re.DOTALL | re.MULTILINE)
         # Remove module docstrings
         code = re.sub(r'^\s*""".*?"""', '', code, flags=re.DOTALL)
         # Remove duplicate imports
         lines = code.splitlines()
         filtered_lines = []
         for line in lines:
-            if line.strip().startswith('import') or line.strip().startswith('from'):
+            stripped = line.strip()
+            if stripped.startswith('import') or stripped.startswith('from'):
                 mod = line.split()[1].split('.')[0]
                 if mod in seen_imports:
                     continue
                 seen_imports.add(mod)
             filtered_lines.append(line)
-        code_blocks.append('\n'.join(filtered_lines))
+        # Remove leading/trailing blank lines
+        filtered = '\n'.join(filtered_lines).strip()
+        code_blocks.append(filtered)
+    # Join with two newlines to avoid accidental code merging
     return '\n\n'.join(code_blocks)
 
 
@@ -63,42 +66,40 @@ def check_imports(files):
 
 
 def replace_imports_with_inlined_code(toolbox_code: str, util_code: str) -> str:
-    """Replace import statements with inlined utility code."""
     lines = toolbox_code.splitlines()
     output_lines = []
-    
-    # Track which imports to replace
     imports_to_replace = [
         'from arcgispro_ai.arcgispro_ai_utils import',
         'from arcgispro_ai.core.api_clients import'
     ]
-    
     util_code_inserted = False
-    
+    skip_mode = False
     for i, line in enumerate(lines):
-        # Check if this line contains imports we need to replace
-        should_skip = False
-        for import_pattern in imports_to_replace:
-            if line.strip().startswith(import_pattern):
-                should_skip = True
-                break
-        
-        if should_skip:
-            # Skip this import line, we'll add the inlined code later
+        stripped = line.strip()
+        # If the import is inside a parenthesis block, skip lines until the closing parenthesis
+        if any(stripped.startswith(pattern) for pattern in imports_to_replace):
             if not util_code_inserted:
-                # Insert the utility code where the first import was
                 output_lines.append('')
                 output_lines.append('# --- INLINED UTILITY CODE ---')
+                # Do NOT dedent util_code; preserve original indentation
                 output_lines.append(util_code)
                 output_lines.append('# --- END INLINED UTILITY CODE ---')
                 output_lines.append('')
                 util_code_inserted = True
+            # If the import is part of a tuple/list, skip until closing parenthesis
+            if line.rstrip().endswith('('):
+                skip_mode = True
             continue
-        
-        # Add the line to output
+        if skip_mode:
+            # End skip mode when a closing parenthesis is found at the start of a line
+            if stripped == ')':
+                skip_mode = False
+            continue
         output_lines.append(line)
-    
-    return '\n'.join(output_lines)
+    # Remove consecutive blank lines
+    result = '\n'.join(output_lines)
+    result = re.sub(r'\n{3,}', '\n\n', result)
+    return result
 
 
 def main():
