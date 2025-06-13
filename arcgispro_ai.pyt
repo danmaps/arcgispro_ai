@@ -19,8 +19,6 @@ import tempfile
 import re
 from typing import Dict, List, Union, Optional, Any
 
-from .core.api_clients import get_client, GeoJSONUtils, parse_numeric_value, get_env_var
-
 class MapUtils:
     @staticmethod
     def metadata_to_dict(metadata: Any) -> Dict[str, Any]:

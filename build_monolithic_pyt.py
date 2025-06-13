@@ -34,18 +34,20 @@ def inline_code(files):
         code = re.sub(r"^([ \t]*)if __name__ ?== ?['\"]__main__['\"]:.*?(?=^\S|\Z)", '', code, flags=re.DOTALL | re.MULTILINE)
         # Remove module docstrings
         code = re.sub(r'^\s*""".*?"""', '', code, flags=re.DOTALL)
-        # Remove duplicate imports
+        # Remove duplicate and relative imports
         lines = code.splitlines()
         filtered_lines = []
         for line in lines:
             stripped = line.strip()
+            # Remove relative imports
+            if stripped.startswith('from .'):
+                continue
             if stripped.startswith('import') or stripped.startswith('from'):
                 mod = line.split()[1].split('.')[0]
                 if mod in seen_imports:
                     continue
                 seen_imports.add(mod)
             filtered_lines.append(line)
-        # Remove leading/trailing blank lines
         filtered = '\n'.join(filtered_lines).strip()
         code_blocks.append(filtered)
     # Join with two newlines to avoid accidental code merging
