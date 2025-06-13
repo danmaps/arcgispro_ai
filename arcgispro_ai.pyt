@@ -1221,7 +1221,7 @@ class ConvertTextToNumeric(object):
         if deployment:
             kwargs["deployment_name"] = deployment
 
-        converted_values = get_client(api_key, source, **kwargs).convert_series_to_numeric(field_values)
+        converted_values = get_client(source, api_key, **kwargs).convert_series_to_numeric(field_values)
 
         # Add a new field to store the converted numeric values
         field_name_new = f"{field}_numeric"

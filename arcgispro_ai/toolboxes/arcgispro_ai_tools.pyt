@@ -584,7 +584,7 @@ class Python(object):
         layers = parameters[4].values
         # combine map and layer data into one JSON
         # only do this if context is empty
-        if parameters[6].valueAsText == "":
+        if not parameters[6].valueAsText or parameters[6].valueAsText.strip() == "":
             context_json = {
                 "map": map_to_json(), 
                 "layers": FeatureLayerUtils.get_layer_info(layers)
@@ -802,7 +802,7 @@ class ConvertTextToNumeric(object):
         if deployment:
             kwargs["deployment_name"] = deployment
 
-        converted_values = get_client(api_key, source, **kwargs).convert_series_to_numeric(field_values)
+        converted_values = get_client(source, api_key, **kwargs).convert_series_to_numeric(field_values)
 
         # Add a new field to store the converted numeric values
         field_name_new = f"{field}_numeric"
@@ -1129,8 +1129,7 @@ Requirements:
 4. Implement all required methods: __init__, getParameterInfo, isLicensed, updateParameters, updateMessages, execute, and postExecute
 5. Follow ArcGIS Pro Python Toolbox best practices
 
-"""
-        
+"""        
         if param_structure:
             prompt_text += f"Use the following parameter structure: {json.dumps(param_structure, indent=2)}"
             
@@ -1138,8 +1137,15 @@ Requirements:
         
         try:
             # Generate the toolbox code using the AI model
-            client = get_client(api_key, source, **kwargs)
-            response = client.generate_text(prompt_text)
+            client = get_client(source, api_key, **kwargs)
+            
+            # Format the prompt as messages for the AI client
+            messages = [
+                {"role": "system", "content": "You are a helpful assistant that generates ArcGIS Python Toolbox (.pyt) files."},
+                {"role": "user", "content": prompt_text}
+            ]
+            
+            response = client.get_completion(messages)
             
             if not response:
                 arcpy.AddError("Failed to generate toolbox code. Please try again.")
