@@ -1084,7 +1084,7 @@ class GenerateTool(object):
             arcpy.AddMessage("Generating Python code from natural language prompt...")
             # Create a minimal context - no map info needed for this tool
             context_json = {"layers": []}
-              try:
+            try:
                 # Use the existing generate_python function to convert prompt to code
                 python_code = generate_python(
                     api_key,
