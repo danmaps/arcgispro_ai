@@ -4,9 +4,9 @@ import sys
 import ast
 from pathlib import Path
 
-# List of allowed imports (standard library + arcpy)
+# List of allowed imports (standard library + arcpy + commonly available packages)
 ALLOWED_IMPORTS = set([
-    'arcpy', 'os', 'sys', 'json', 're', 'math', 'datetime', 'time', 'random', 'collections', 'itertools', 'functools', 'pathlib', 'shutil', 'logging', 'csv', 'copy', 'ast', 'typing', 'traceback', 'subprocess', 'threading', 'concurrent', 'uuid', 'base64', 'hashlib', 'tempfile', 'glob', 'inspect', 'enum', 'warnings', 'contextlib', 'io', 'zipfile', 'struct', 'platform', 'getpass', 'socket', 'http', 'urllib', 'email', 'pprint', 'argparse', 'dataclasses', 'statistics', 'string', 'types', 'site', 'importlib', 'pkgutil', 'codecs', 'signal', 'weakref', 'array', 'bisect', 'heapq', 'queue', 'resource', 'selectors', 'ssl', 'tarfile', 'xml', 'xml.etree', 'xml.dom', 'xml.sax', 'xml.parsers', 'xmlrpc', 'bz2', 'lzma', 'gzip', 'pickle', 'marshal', 'shelve', 'sqlite3', 'ctypes', 'cProfile', 'pstats', 'doctest', 'unittest', 'venv', 'ensurepip', 'distutils', 'site', 'venv', 'wsgiref', 'uuid', 'zoneinfo', 'faulthandler', 'trace', 'token', 'tokenize', 'symtable', 'tabnanny', 'pyclbr', 'py_compile', 'compileall', 'dis', 'formatter', 'gettext', 'locale', 'mailbox', 'mailcap', 'mimetypes', 'mmap', 'msilib', 'netrc', 'nntplib', 'numbers', 'optparse', 'parser', 'pipes', 'poplib', 'profile', 'pydoc', 'quopri', 'reprlib', 'runpy', 'sched', 'secrets', 'selectors', 'smtpd', 'smtplib', 'sndhdr', 'spwd', 'stat', 'sunau', 'symbol', 'symtable', 'sysconfig', 'tabnanny', 'telnetlib', 'termios', 'test', 'textwrap', 'this', 'tkinter', 'turtle', 'tty', 'turtle', 'unittest', 'uu', 'venv', 'webbrowser', 'xdrlib', 'zipapp', 'zlib', 'zoneinfo'
+    'arcpy', 'os', 'sys', 'json', 're', 'math', 'datetime', 'time', 'random', 'collections', 'itertools', 'functools', 'pathlib', 'shutil', 'logging', 'csv', 'copy', 'ast', 'typing', 'traceback', 'subprocess', 'threading', 'concurrent', 'uuid', 'base64', 'hashlib', 'tempfile', 'glob', 'inspect', 'enum', 'warnings', 'contextlib', 'io', 'zipfile', 'struct', 'platform', 'getpass', 'socket', 'http', 'urllib', 'email', 'pprint', 'argparse', 'dataclasses', 'statistics', 'string', 'types', 'site', 'importlib', 'pkgutil', 'codecs', 'signal', 'weakref', 'array', 'bisect', 'heapq', 'queue', 'resource', 'selectors', 'ssl', 'tarfile', 'xml', 'xml.etree', 'xml.dom', 'xml.sax', 'xml.parsers', 'xmlrpc', 'bz2', 'lzma', 'gzip', 'pickle', 'marshal', 'shelve', 'sqlite3', 'ctypes', 'cProfile', 'pstats', 'doctest', 'unittest', 'venv', 'ensurepip', 'distutils', 'site', 'venv', 'wsgiref', 'uuid', 'zoneinfo', 'faulthandler', 'trace', 'token', 'tokenize', 'symtable', 'tabnanny', 'pyclbr', 'py_compile', 'compileall', 'dis', 'formatter', 'gettext', 'locale', 'mailbox', 'mailcap', 'mimetypes', 'mmap', 'msilib', 'netrc', 'nntplib', 'numbers', 'optparse', 'parser', 'pipes', 'poplib', 'profile', 'pydoc', 'quopri', 'reprlib', 'runpy', 'sched', 'secrets', 'selectors', 'smtpd', 'smtplib', 'sndhdr', 'spwd', 'stat', 'sunau', 'symbol', 'symtable', 'sysconfig', 'tabnanny', 'telnetlib', 'termios', 'test', 'textwrap', 'this', 'tkinter', 'turtle', 'tty', 'turtle', 'unittest', 'uu', 'venv', 'webbrowser', 'xdrlib', 'zipapp', 'zlib', 'zoneinfo', 'requests', 'arcgispro_ai', 'core'
 ])
 
 
@@ -62,42 +62,106 @@ def check_imports(files):
     return unsupported
 
 
+def replace_imports_with_inlined_code(toolbox_code: str, util_code: str) -> str:
+    """Replace import statements with inlined utility code."""
+    lines = toolbox_code.splitlines()
+    output_lines = []
+    
+    # Track which imports to replace
+    imports_to_replace = [
+        'from arcgispro_ai.arcgispro_ai_utils import',
+        'from arcgispro_ai.core.api_clients import'
+    ]
+    
+    util_code_inserted = False
+    
+    for i, line in enumerate(lines):
+        # Check if this line contains imports we need to replace
+        should_skip = False
+        for import_pattern in imports_to_replace:
+            if line.strip().startswith(import_pattern):
+                should_skip = True
+                break
+        
+        if should_skip:
+            # Skip this import line, we'll add the inlined code later
+            if not util_code_inserted:
+                # Insert the utility code where the first import was
+                output_lines.append('')
+                output_lines.append('# --- INLINED UTILITY CODE ---')
+                output_lines.append(util_code)
+                output_lines.append('# --- END INLINED UTILITY CODE ---')
+                output_lines.append('')
+                util_code_inserted = True
+            continue
+        
+        # Add the line to output
+        output_lines.append(line)
+    
+    return '\n'.join(output_lines)
+
+
 def main():
     """Build a monolithic .pyt file from toolbox and utility modules."""
     root = Path(__file__).parent
     toolbox_file = root / 'arcgispro_ai' / 'toolboxes' / 'arcgispro_ai_tools.pyt'
     util_dir = root / 'arcgispro_ai' / 'toolboxes' / 'arcgispro_ai'  # Utility code
-    util_files = [util_dir / 'arcgispro_ai_utils.py']  # Add more as needed
+    util_files = [
+        util_dir / 'arcgispro_ai_utils.py',
+        util_dir / 'core' / 'api_clients.py'
+    ]  # Add more as needed
 
     # Check for unsupported imports
     unsupported = check_imports([toolbox_file] + util_files)
     if unsupported:
         print(f"WARNING: Unsupported imports found: {unsupported}")
-
+    
     # Inline utility code
     util_code = inline_code(util_files)
-    # Inline toolbox code
+      # Read the original toolbox file
     with open(toolbox_file, 'r', encoding='utf-8') as f:
         toolbox_code = f.read()
+    
+    # Debug: Check if GenerateTool is in the original code
+    if 'GenerateTool' in toolbox_code:
+        print("✓ GenerateTool found in original toolbox file")
+    else:
+        print("✗ GenerateTool NOT found in original toolbox file")
+    
+    # Replace imports with inlined code
+    result = replace_imports_with_inlined_code(toolbox_code, util_code)
+      # Debug: Check if GenerateTool is still in the processed code
+    if 'GenerateTool' in result:
+        print("✓ GenerateTool preserved after processing")
+        # Check if it's in the tools list
+        if 'GenerateTool]' in result:
+            print("✓ GenerateTool found in tools list")
+        else:
+            print("✗ GenerateTool NOT found in tools list")
+    else:
+        print("✗ GenerateTool LOST during processing")
+      # Add header comment
+    header = '''# -*- coding: utf-8 -*-
+"""
+arcgispro_ai.pyt - Monolithic Python Toolbox
+This file is auto-generated from arcgispro_ai_tools.pyt with inlined dependencies.
+Do not edit directly - regenerate using build_monolithic_pyt.py
+"""
 
-    # Read template
-    template_file = root / 'arcgispro_ai.pyt'
-    with open(template_file, 'r', encoding='utf-8') as f:
-        template = f.read()
-
-    # Replace placeholders
-    result = template.replace(
-        '# --- BEGIN INLINED UTILITY CODE ---\n# (Utility functions/classes from arcgispro_ai_utils.py, etc. will be inserted here by the build script)\n# --- END INLINED UTILITY CODE ---',
-        f'# --- BEGIN INLINED UTILITY CODE ---\n{util_code}\n# --- END INLINED UTILITY CODE ---'
-    ).replace(
-        '# --- BEGIN TOOLBOX AND TOOL CLASSES ---\n# (Toolbox and tool classes from arcgispro_ai_tools.pyt will be inserted here by the build script)\n# --- END TOOLBOX AND TOOL CLASSES ---',
-        f'# --- BEGIN TOOLBOX AND TOOL CLASSES ---\n{toolbox_code}\n# --- END TOOLBOX AND TOOL CLASSES ---'
-    )
+'''
+    
+    final_result = header + result
+    
+    # Debug: Check if GenerateTool is still in the final result
+    if 'GenerateTool' in final_result:
+        print("✓ GenerateTool present in final result")
+    else:
+        print("✗ GenerateTool LOST in final result")
 
     # Write output
     out_file = root / f'arcgispro_ai.pyt'
     with open(out_file, 'w', encoding='utf-8') as f:
-        f.write(result)
+        f.write(final_result)
     print(f"Monolithic .pyt written to {out_file}")
 
 if __name__ == '__main__':
