@@ -30,6 +30,7 @@ document.addEventListener('DOMContentLoaded', function() {
         <a href="${rootPath}tools/GetMapInfo.html">Get Map Info</a>
         <a href="${rootPath}tools/Python.html">Generate Python Code</a>
         <a href="${rootPath}tools/ConvertTextToNumeric.html">Convert Text to Numeric</a>
+        <a href="${rootPath}tools/GenerateTool.html">Generate Tool</a>
       </div>
     </div>
   `;
