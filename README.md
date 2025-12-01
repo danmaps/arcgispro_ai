@@ -72,6 +72,7 @@ Set up the required environment variables for your chosen AI provider(s):
    setx AZURE_OPENAI_API_KEY "your-key-here"
    setx ANTHROPIC_API_KEY "your-key-here"
    setx DEEPSEEK_API_KEY "your-key-here"
+   setx OPENROUTER_API_KEY "your-key-here"
    ```
 
 ## For local LLM setup
@@ -96,8 +97,28 @@ Each tool will use the selected provider to generate responses, with automatic f
 - <b>Azure OpenAI</b>: Microsoft-hosted (requires `AZURE_OPENAI_API_KEY`)
 - <b>Claude (Anthropic)</b>: (requires `ANTHROPIC_API_KEY`)
 - <b>DeepSeek</b>: (requires `DEEPSEEK_API_KEY`)
+- <b>OpenRouter</b>: Unified API for multiple models including OpenAI, Gemini, Claude, Llama, and more (requires `OPENROUTER_API_KEY`)
 - <b>Local LLM</b>: No API key needed, OpenAI-compatible API
 - <b>Wolfram Alpha</b>: For math/computation (requires `WOLFRAM_ALPHA_API_KEY`)
+
+### OpenRouter Details
+
+OpenRouter provides a single API that gives you access to dozens of AI models from various providers:
+- OpenAI models (GPT-4, GPT-3.5, etc.)
+- Google models (Gemini 2.0 Flash, etc.)
+- Anthropic models (Claude 3.5 Sonnet, etc.)
+- Meta models (Llama variants)
+- DeepSeek models
+- And many more
+
+To use OpenRouter:
+1. Sign up for an API key at [openrouter.ai](https://openrouter.ai)
+2. Set your API key:
+   ```batch
+   setx OPENROUTER_API_KEY "your-openrouter-key"
+   ```
+3. Select "OpenRouter" as the provider in any tool
+4. Choose from the curated model list or enter any OpenRouter-supported model ID (format: `provider/model-name`)
 
 ---
 

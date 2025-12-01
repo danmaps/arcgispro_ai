@@ -628,6 +628,31 @@ class DeepSeekClient(APIClient):
         response = self.make_request("chat/completions", data)
         return response["choices"][0]["message"]["content"].strip()
 
+class OpenRouterClient(APIClient):
+    def __init__(self, api_key: str, model: str = "openai/gpt-4o-mini"):
+        super().__init__(api_key, "https://openrouter.ai/api/v1")
+        self.model = model
+        # Add OpenRouter-specific headers
+        self.headers.update({
+            "HTTP-Referer": "https://github.com/danmaps/arcgispro_ai",
+            "X-Title": "ArcGIS Pro AI Toolbox"
+        })
+
+    def get_completion(self, messages: List[Dict[str, str]], response_format: Optional[str] = None) -> str:
+        """Get completion from OpenRouter API."""
+        data = {
+            "model": self.model,
+            "messages": messages,
+            "temperature": 0.5,
+            "max_tokens": 5000,
+        }
+        
+        if response_format == "json_object":
+            data["response_format"] = {"type": "json_object"}
+        
+        response = self.make_request("chat/completions", data)
+        return response["choices"][0]["message"]["content"].strip()
+
 class LocalLLMClient(APIClient):
     def __init__(self, api_key: str = "", base_url: str = "http://localhost:8000"):
         super().__init__(api_key, base_url)
@@ -719,6 +744,7 @@ def get_client(source: str, api_key: str, **kwargs) -> APIClient:
         ),
         "Claude": lambda: ClaudeClient(api_key, model=kwargs.get('model', 'claude-3-opus-20240229')),
         "DeepSeek": lambda: DeepSeekClient(api_key, model=kwargs.get('model', 'deepseek-chat')),
+        "OpenRouter": lambda: OpenRouterClient(api_key, model=kwargs.get('model', 'openai/gpt-4o-mini')),
         "Local LLM": lambda: LocalLLMClient(base_url=kwargs.get('base_url', 'http://localhost:8000')),
         "Wolfram Alpha": lambda: WolframAlphaClient(api_key)
     }
@@ -759,6 +785,12 @@ def update_model_parameters(source: str, parameters: list, current_model: str = 
         "DeepSeek": {
             "models": ["deepseek-chat", "deepseek-coder"],
             "default": "deepseek-chat",
+            "endpoint": False,
+            "deployment": False
+        },
+        "OpenRouter": {
+            "models": ["openai/gpt-4o-mini", "openai/o3-mini", "google/gemini-2.0-flash-exp:free", "anthropic/claude-3.5-sonnet", "deepseek/deepseek-chat"],
+            "default": "openai/gpt-4o-mini",
             "endpoint": False,
             "deployment": False
         },
@@ -837,7 +869,7 @@ class FeatureLayer(object):
             direction="Input",
         )
         source.filter.type = "ValueList"
-        source.filter.list = ["OpenAI", "Azure OpenAI", "Claude", "DeepSeek", "Local LLM"]
+        source.filter.list = ["OpenAI", "Azure OpenAI", "Claude", "DeepSeek", "OpenRouter", "Local LLM"]
         source.value = "OpenAI"
 
         model = arcpy.Parameter(
@@ -928,6 +960,7 @@ class FeatureLayer(object):
             "Azure OpenAI": "AZURE_OPENAI_API_KEY",
             "Claude": "ANTHROPIC_API_KEY",
             "DeepSeek": "DEEPSEEK_API_KEY",
+            "OpenRouter": "OPENROUTER_API_KEY",
             "Local LLM": None
         }
         api_key = get_env_var(api_key_map.get(source, "OPENAI_API_KEY"))
@@ -973,7 +1006,7 @@ class Field(object):
             direction="Input",
         )
         source.filter.type = "ValueList"
-        source.filter.list = ["OpenAI", "Azure OpenAI", "Claude", "DeepSeek", "Local LLM", "Wolfram Alpha"]
+        source.filter.list = ["OpenAI", "Azure OpenAI", "Claude", "DeepSeek", "OpenRouter", "Local LLM", "Wolfram Alpha"]
         source.value = "OpenAI"
 
         model = arcpy.Parameter(
@@ -1092,6 +1125,7 @@ class Field(object):
             "Azure OpenAI": "AZURE_OPENAI_API_KEY",
             "Claude": "ANTHROPIC_API_KEY",
             "DeepSeek": "DEEPSEEK_API_KEY",
+            "OpenRouter": "OPENROUTER_API_KEY",
             "Local LLM": None,
             "Wolfram Alpha": "WOLFRAM_ALPHA_API_KEY"
         }
@@ -1209,7 +1243,7 @@ class Python(object):
             direction="Input",
         )
         source.filter.type = "ValueList"
-        source.filter.list = ["OpenAI", "Azure OpenAI", "Claude", "DeepSeek", "Local LLM"]
+        source.filter.list = ["OpenAI", "Azure OpenAI", "Claude", "DeepSeek", "OpenRouter", "Local LLM"]
         source.value = "OpenAI"
 
         model = arcpy.Parameter(
@@ -1327,6 +1361,7 @@ class Python(object):
             "Azure OpenAI": "AZURE_OPENAI_API_KEY",
             "Claude": "ANTHROPIC_API_KEY",
             "DeepSeek": "DEEPSEEK_API_KEY",
+            "OpenRouter": "OPENROUTER_API_KEY",
             "Local LLM": None
         }
         api_key = get_env_var(api_key_map.get(source, "OPENAI_API_KEY"))
@@ -1411,7 +1446,7 @@ class ConvertTextToNumeric(object):
             direction="Input",
         )
         source.filter.type = "ValueList"
-        source.filter.list = ["OpenAI", "Azure OpenAI", "Claude", "DeepSeek", "Local LLM"]
+        source.filter.list = ["OpenAI", "Azure OpenAI", "Claude", "DeepSeek", "OpenRouter", "Local LLM"]
         source.value = "OpenAI"
 
         model = arcpy.Parameter(
@@ -1496,6 +1531,7 @@ class ConvertTextToNumeric(object):
             "Azure OpenAI": "AZURE_OPENAI_API_KEY",
             "Claude": "ANTHROPIC_API_KEY",
             "DeepSeek": "DEEPSEEK_API_KEY",
+            "OpenRouter": "OPENROUTER_API_KEY",
             "Local LLM": None
         }
         api_key = get_env_var(api_key_map.get(source, "OPENAI_API_KEY"))
@@ -1547,7 +1583,7 @@ class GenerateTool(object):
             direction="Input",
         )
         source.filter.type = "ValueList"
-        source.filter.list = ["OpenAI", "Azure OpenAI", "Claude", "DeepSeek", "Local LLM"]
+        source.filter.list = ["OpenAI", "Azure OpenAI", "Claude", "DeepSeek", "OpenRouter", "Local LLM"]
         source.value = "OpenAI"
 
         model = arcpy.Parameter(
@@ -1775,6 +1811,7 @@ class GenerateTool(object):
             "Azure OpenAI": "AZURE_OPENAI_API_KEY",
             "Claude": "ANTHROPIC_API_KEY",
             "DeepSeek": "DEEPSEEK_API_KEY",
+            "OpenRouter": "OPENROUTER_API_KEY",
             "Local LLM": None
         }
         api_key = get_env_var(api_key_map.get(source, "OPENAI_API_KEY"))
