@@ -155,6 +155,31 @@ class DeepSeekClient(APIClient):
         response = self.make_request("chat/completions", data)
         return response["choices"][0]["message"]["content"].strip()
 
+class OpenRouterClient(APIClient):
+    def __init__(self, api_key: str, model: str = "openai/gpt-4o-mini"):
+        super().__init__(api_key, "https://openrouter.ai/api/v1")
+        self.model = model
+        # Add OpenRouter-specific headers
+        self.headers.update({
+            "HTTP-Referer": "https://github.com/danmaps/arcgispro_ai",
+            "X-Title": "ArcGIS Pro AI Toolbox"
+        })
+
+    def get_completion(self, messages: List[Dict[str, str]], response_format: Optional[str] = None) -> str:
+        """Get completion from OpenRouter API."""
+        data = {
+            "model": self.model,
+            "messages": messages,
+            "temperature": 0.5,
+            "max_tokens": 5000,
+        }
+        
+        if response_format == "json_object":
+            data["response_format"] = {"type": "json_object"}
+        
+        response = self.make_request("chat/completions", data)
+        return response["choices"][0]["message"]["content"].strip()
+
 class LocalLLMClient(APIClient):
     def __init__(self, api_key: str = "", base_url: str = "http://localhost:8000"):
         super().__init__(api_key, base_url)
@@ -246,6 +271,7 @@ def get_client(source: str, api_key: str, **kwargs) -> APIClient:
         ),
         "Claude": lambda: ClaudeClient(api_key, model=kwargs.get('model', 'claude-3-opus-20240229')),
         "DeepSeek": lambda: DeepSeekClient(api_key, model=kwargs.get('model', 'deepseek-chat')),
+        "OpenRouter": lambda: OpenRouterClient(api_key, model=kwargs.get('model', 'openai/gpt-4o-mini')),
         "Local LLM": lambda: LocalLLMClient(base_url=kwargs.get('base_url', 'http://localhost:8000')),
         "Wolfram Alpha": lambda: WolframAlphaClient(api_key)
     }

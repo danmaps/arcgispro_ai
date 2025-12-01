@@ -869,7 +869,7 @@ class FeatureLayer(object):
             direction="Input",
         )
         source.filter.type = "ValueList"
-        source.filter.list = ["OpenAI", "Azure OpenAI", "Claude", "DeepSeek", "OpenRouter", "Local LLM"]
+        source.filter.list = ["OpenAI", "Azure OpenAI", "Claude", "DeepSeek", "Local LLM"]
         source.value = "OpenAI"
 
         model = arcpy.Parameter(

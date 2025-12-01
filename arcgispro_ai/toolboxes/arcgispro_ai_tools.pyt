@@ -48,6 +48,12 @@ def update_model_parameters(source: str, parameters: list, current_model: str = 
             "endpoint": False,
             "deployment": False
         },
+        "OpenRouter": {
+            "models": ["openai/gpt-4o-mini", "openai/o3-mini", "google/gemini-2.0-flash-exp:free", "anthropic/claude-3.5-sonnet", "deepseek/deepseek-chat"],
+            "default": "openai/gpt-4o-mini",
+            "endpoint": False,
+            "deployment": False
+        },
         "Local LLM": {
             "models": [],
             "default": None,
@@ -214,6 +220,7 @@ class FeatureLayer(object):
             "Azure OpenAI": "AZURE_OPENAI_API_KEY",
             "Claude": "ANTHROPIC_API_KEY",
             "DeepSeek": "DEEPSEEK_API_KEY",
+            "OpenRouter": "OPENROUTER_API_KEY",
             "Local LLM": None
         }
         api_key = get_env_var(api_key_map.get(source, "OPENAI_API_KEY"))
@@ -259,7 +266,7 @@ class Field(object):
             direction="Input",
         )
         source.filter.type = "ValueList"
-        source.filter.list = ["OpenAI", "Azure OpenAI", "Claude", "DeepSeek", "Local LLM", "Wolfram Alpha"]
+        source.filter.list = ["OpenAI", "Azure OpenAI", "Claude", "DeepSeek", "OpenRouter", "Local LLM", "Wolfram Alpha"]
         source.value = "OpenAI"
 
         model = arcpy.Parameter(
@@ -378,6 +385,7 @@ class Field(object):
             "Azure OpenAI": "AZURE_OPENAI_API_KEY",
             "Claude": "ANTHROPIC_API_KEY",
             "DeepSeek": "DEEPSEEK_API_KEY",
+            "OpenRouter": "OPENROUTER_API_KEY",
             "Local LLM": None,
             "Wolfram Alpha": "WOLFRAM_ALPHA_API_KEY"
         }
@@ -495,7 +503,7 @@ class Python(object):
             direction="Input",
         )
         source.filter.type = "ValueList"
-        source.filter.list = ["OpenAI", "Azure OpenAI", "Claude", "DeepSeek", "Local LLM"]
+        source.filter.list = ["OpenAI", "Azure OpenAI", "Claude", "DeepSeek", "OpenRouter", "Local LLM"]
         source.value = "OpenAI"
 
         model = arcpy.Parameter(
@@ -613,6 +621,7 @@ class Python(object):
             "Azure OpenAI": "AZURE_OPENAI_API_KEY",
             "Claude": "ANTHROPIC_API_KEY",
             "DeepSeek": "DEEPSEEK_API_KEY",
+            "OpenRouter": "OPENROUTER_API_KEY",
             "Local LLM": None
         }
         api_key = get_env_var(api_key_map.get(source, "OPENAI_API_KEY"))
@@ -698,7 +707,7 @@ class ConvertTextToNumeric(object):
             direction="Input",
         )
         source.filter.type = "ValueList"
-        source.filter.list = ["OpenAI", "Azure OpenAI", "Claude", "DeepSeek", "Local LLM"]
+        source.filter.list = ["OpenAI", "Azure OpenAI", "Claude", "DeepSeek", "OpenRouter", "Local LLM"]
         source.value = "OpenAI"
 
         model = arcpy.Parameter(
@@ -783,6 +792,7 @@ class ConvertTextToNumeric(object):
             "Azure OpenAI": "AZURE_OPENAI_API_KEY",
             "Claude": "ANTHROPIC_API_KEY",
             "DeepSeek": "DEEPSEEK_API_KEY",
+            "OpenRouter": "OPENROUTER_API_KEY",
             "Local LLM": None
         }
         api_key = get_env_var(api_key_map.get(source, "OPENAI_API_KEY"))
@@ -834,7 +844,7 @@ class GenerateTool(object):
             direction="Input",
         )
         source.filter.type = "ValueList"
-        source.filter.list = ["OpenAI", "Azure OpenAI", "Claude", "DeepSeek", "Local LLM"]
+        source.filter.list = ["OpenAI", "Azure OpenAI", "Claude", "DeepSeek", "OpenRouter", "Local LLM"]
         source.value = "OpenAI"
 
         model = arcpy.Parameter(
@@ -1062,6 +1072,7 @@ class GenerateTool(object):
             "Azure OpenAI": "AZURE_OPENAI_API_KEY",
             "Claude": "ANTHROPIC_API_KEY",
             "DeepSeek": "DEEPSEEK_API_KEY",
+            "OpenRouter": "OPENROUTER_API_KEY",
             "Local LLM": None
         }
         api_key = get_env_var(api_key_map.get(source, "OPENAI_API_KEY"))
