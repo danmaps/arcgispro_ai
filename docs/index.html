@@ -19,23 +19,20 @@
   <h2>Just download the Python toolbox and start using AI in ArcGIS Pro—no install process, no fuss.</h2>
   <a href="https://github.com/danmaps/arcgispro_ai/releases/latest/download/arcgispro_ai.pyt" class="cta" download>Download .pyt Toolbox</a>
   <details class="api-key-details">
-    <summary>How do I get an OpenAI API key?</summary>
+    <summary>How do I get an OpenRouter API key?</summary>
     <ol>
-      <li>Create an OpenAI account at <a href="https://platform.openai.com/" target="_blank">platform.openai.com</a></li>
-      <li>In your OpenAI API account, navigate to <a href="https://platform.openai.com/account/billing/overview" target="_blank"><strong>Settings &gt; Billing</strong></a></li>
-      <li>Click <strong>Add to credit balance</strong></li>
-      <li>Add at least <strong>$5</strong> to your account</li>
-      <li>Navigate to <a href="https://platform.openai.com/api-keys" target="_blank">API Keys</a></li>
-      <li>Click <strong>Create new secret key</strong></li>
-      <li>Copy the key to your clipboard</li>
+      <li>Create an OpenRouter account at <a href="https://openrouter.ai" target="_blank">openrouter.ai</a></li>
+      <li>Go to <a href="https://openrouter.ai/settings/keys" target="_blank"><strong>Settings &gt; API Keys</strong></a></li>
+      <li>Click <strong>Create Key</strong>, give it a descriptive name (like "ArcGIS Pro AI"), and copy the secret value</li>
       <li>Use <code>setx</code> to store the API key on your machine:<br>
-        <code>setx OPENAI_API_KEY "your-key-here"</code>
+        <code>setx OPENROUTER_API_KEY "your-openrouter-key"</code>
       </li>
+      <li>(Optional) Add credit on the <a href="https://openrouter.ai/settings/billing" target="_blank">Billing</a> page or attach a card so requests can run without limits</li>
     </ol>
     <h4>Checking Usage & Cost</h4>
     <ul>
-      <li>To check your usage, visit <a href="https://platform.openai.com/usage" target="_blank">platform.openai.com/usage</a>.</li>
-      <li>In my experience, using the mini models gives good results and each run typically costs less than <strong>$0.02</strong>.</li>
+      <li>Review recent calls and spending on the <a href="https://openrouter.ai/log" target="_blank">OpenRouter Logs</a> page.</li>
+      <li>Mini models on OpenRouter are inexpensive—typical runs cost only a few cents.</li>
     </ul>
   </details>
 </div>

@@ -42,6 +42,12 @@ def update_model_parameters(source: str, parameters: list, current_model: str = 
             "endpoint": False,
             "deployment": False
         },
+        "OpenRouter": {
+            "models": ["openai/gpt-4o-mini", "openai/o3-mini", "google/gemini-2.0-flash-exp:free", "anthropic/claude-3.5-sonnet", "deepseek/deepseek-chat"],
+            "default": "openai/gpt-4o-mini",
+            "endpoint": False,
+            "deployment": False
+        },
         "Local LLM": {
             "models": [],
             "default": None,
@@ -87,8 +93,8 @@ class FixedGenerateTool(object):
             direction="Input",
         )
         source.filter.type = "ValueList"
-        source.filter.list = ["OpenAI", "Azure OpenAI", "Claude", "DeepSeek", "Local LLM"]
-        source.value = "OpenAI"
+        source.filter.list = ["OpenRouter", "OpenAI", "Azure OpenAI", "Claude", "DeepSeek", "Local LLM"]
+        source.value = "OpenRouter"
 
         model = arcpy.Parameter(
             displayName="Model",
@@ -311,13 +317,14 @@ class FixedGenerateTool(object):
         
         # Get the appropriate API key
         api_key_map = {
+            "OpenRouter": "OPENROUTER_API_KEY",
             "OpenAI": "OPENAI_API_KEY",
             "Azure OpenAI": "AZURE_OPENAI_API_KEY",
             "Claude": "ANTHROPIC_API_KEY",
             "DeepSeek": "DEEPSEEK_API_KEY",
             "Local LLM": None
         }
-        api_key = get_env_var(api_key_map.get(source, "OPENAI_API_KEY"))
+        api_key = get_env_var(api_key_map.get(source, "OPENROUTER_API_KEY"))
         
         # Set up parameters for API calls
         kwargs = {}

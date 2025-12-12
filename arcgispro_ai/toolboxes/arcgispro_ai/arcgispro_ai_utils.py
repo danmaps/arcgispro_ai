@@ -281,7 +281,7 @@ def create_feature_layer_from_geojson(
 
 
 def fetch_geojson(
-    api_key: str, query: str, output_layer_name: str, source: str = "OpenAI", **kwargs
+    api_key: str, query: str, output_layer_name: str, source: str = "OpenRouter", **kwargs
 ) -> Optional[Dict[str, Any]]:
     """Fetch GeoJSON data using AI response and create a feature layer."""
     client = get_client(source, api_key, **kwargs)
@@ -313,7 +313,7 @@ def generate_python(
     api_key: str,
     map_info: Dict[str, Any],
     prompt: str,
-    source: str = "OpenAI",
+    source: str = "OpenRouter",
     explain: bool = False,
     **kwargs,
 ) -> Optional[str]:

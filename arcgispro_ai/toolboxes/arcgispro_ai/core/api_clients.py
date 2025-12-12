@@ -256,7 +256,7 @@ def parse_numeric_value(text_value: str) -> Union[float, int]:
     except ValueError:
         raise ValueError(f"Could not parse numeric value from: {text_value}")
 
-def get_env_var(var_name: str = "OPENAI_API_KEY") -> str:
+def get_env_var(var_name: str = "OPENROUTER_API_KEY") -> str:
     """Get environment variable value."""
     return os.environ.get(var_name, "")
 

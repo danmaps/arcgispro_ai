@@ -17,6 +17,7 @@
 ## Quick Links
 - [GitHub](https://github.com/danmaps/arcgispro-ai-toolbox)
 - [Docs](https://danmaps.github.io/arcgispro_ai/)
+- [Agent Instructions](AGENT_INSTRUCTIONS.md)
 
 ---
 
@@ -27,7 +28,7 @@ ArcGIS Pro AI Toolbox is the only BYOK, open‑source plugin that brings conver
 </blockquote>
 
 - Install in minutes. Prompt, generate, map—directly inside ArcGIS Pro.
-- Works with OpenAI, Azure, Claude, DeepSeek, local LLMs, and more.
+- Preconfigured with OpenRouter out of the box, while still working with OpenAI, Azure, Claude, DeepSeek, local LLMs, and more.
 - BYOK: Bring your own API key, keep your data private.
 - No cloud detour, no extra Esri credits, no code required.
 
@@ -68,12 +69,14 @@ There are two ways to get started with the ArcGIS Pro AI Toolbox:
 Set up the required environment variables for your chosen AI provider(s):
 
    ```batch
+   setx OPENROUTER_API_KEY "your-key-here"
    setx OPENAI_API_KEY "your-key-here"
    setx AZURE_OPENAI_API_KEY "your-key-here"
    setx ANTHROPIC_API_KEY "your-key-here"
    setx DEEPSEEK_API_KEY "your-key-here"
-   setx OPENROUTER_API_KEY "your-key-here"
    ```
+
+OpenRouter is the default provider for every tool, so configuring `OPENROUTER_API_KEY` is enough to start running prompts immediately. Set the other environment variables only if you plan to switch to those providers.
 
 ## For local LLM setup
 
@@ -84,20 +87,20 @@ Set up the required environment variables for your chosen AI provider(s):
 
 ## Usage
 
-1. Select your preferred AI provider from the dropdown in each tool
+1. Leave the Source dropdown at OpenRouter (the default) or switch to another provider if you've configured its API key
 2. Configure any provider-specific settings (model, endpoint, etc.)
 3. Enter your prompt or query
 4. Execute the tool
 
-Each tool will use the selected provider to generate responses, with automatic fallback to OpenAI if the selected provider is not configured.
+Each tool starts on OpenRouter, so you can run with zero extra configuration. When you choose another provider, make sure its API key and settings are in place before executing the tool.
 
 ## Supported AI Providers
 
+- <b>OpenRouter (default)</b>: Unified API for multiple models including OpenAI, Gemini, Claude, Llama, and more (requires `OPENROUTER_API_KEY`)
 - <b>OpenAI</b>: GPT-4 and more (requires `OPENAI_API_KEY`)
 - <b>Azure OpenAI</b>: Microsoft-hosted (requires `AZURE_OPENAI_API_KEY`)
 - <b>Claude (Anthropic)</b>: (requires `ANTHROPIC_API_KEY`)
 - <b>DeepSeek</b>: (requires `DEEPSEEK_API_KEY`)
-- <b>OpenRouter</b>: Unified API for multiple models including OpenAI, Gemini, Claude, Llama, and more (requires `OPENROUTER_API_KEY`)
 - <b>Local LLM</b>: No API key needed, OpenAI-compatible API
 - <b>Wolfram Alpha</b>: For math/computation (requires `WOLFRAM_ALPHA_API_KEY`)
 
@@ -117,7 +120,7 @@ To use OpenRouter:
    ```batch
    setx OPENROUTER_API_KEY "your-openrouter-key"
    ```
-3. Select "OpenRouter" as the provider in any tool
+3. OpenRouter is already selected in every tool—leave the Source dropdown on OpenRouter (or switch back to it) to start using it immediately
 4. Choose from the curated model list or enter any OpenRouter-supported model ID (format: `provider/model-name`)
 
 ---
@@ -160,4 +163,3 @@ See `build_monolithic_pyt.py` for details on how the monolithic `.pyt` is built.
 Make an issue or create a branch for your feature or bug fix, and submit a pull request.
 
 ---
-
