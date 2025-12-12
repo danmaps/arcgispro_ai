@@ -165,6 +165,58 @@ class OpenRouterClient(APIClient):
             "X-Title": "ArcGIS Pro AI Toolbox"
         })
 
+    def get_available_models(self) -> List[str]:
+        """Get list of available models from OpenRouter API."""
+        fallback_models = [
+            "openai/gpt-4o-mini",
+            "openai/o3-mini",
+            "google/gemini-2.0-flash-exp:free",
+            "anthropic/claude-3.5-sonnet",
+            "deepseek/deepseek-chat"
+        ]
+        try:
+            response = requests.get(
+                f"{self.base_url}/models",
+                headers=self.headers,
+                timeout=15,
+                verify=False
+            )
+            response.raise_for_status()
+            data = response.json().get("data", [])
+            models_with_meta = []
+            for model in data:
+                model_id = model.get("id")
+                if not model_id:
+                    continue
+                pricing = model.get("pricing", {})
+                prompt_price = pricing.get("prompt")
+                completion_price = pricing.get("completion")
+
+                def _parse_price(value: Any) -> float:
+                    if value in (None, "", "N/A"):
+                        return float("inf")
+                    try:
+                        return float(value)
+                    except (TypeError, ValueError):
+                        return float("inf")
+
+                models_with_meta.append(
+                    (
+                        model_id,
+                        _parse_price(prompt_price),
+                        _parse_price(completion_price)
+                    )
+                )
+
+            if not models_with_meta:
+                return fallback_models
+
+            # Sort with free models first, then by price, then alphabetically
+            models_with_meta.sort(key=lambda item: (item[1], item[2], item[0]))
+            return [model_id for model_id, _, _ in models_with_meta]
+        except Exception:
+            return fallback_models
+
     def get_completion(self, messages: List[Dict[str, str]], response_format: Optional[str] = None) -> str:
         """Get completion from OpenRouter API."""
         data = {

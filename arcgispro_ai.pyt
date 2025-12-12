@@ -285,7 +285,7 @@ def create_feature_layer_from_geojson(
         arcpy.AddWarning("No active map found in the current project.")
 
 def fetch_geojson(
-    api_key: str, query: str, output_layer_name: str, source: str = "OpenAI", **kwargs
+    api_key: str, query: str, output_layer_name: str, source: str = "OpenRouter", **kwargs
 ) -> Optional[Dict[str, Any]]:
     """Fetch GeoJSON data using AI response and create a feature layer."""
     client = get_client(source, api_key, **kwargs)
@@ -316,7 +316,7 @@ def generate_python(
     api_key: str,
     map_info: Dict[str, Any],
     prompt: str,
-    source: str = "OpenAI",
+    source: str = "OpenRouter",
     explain: bool = False,
     **kwargs,
 ) -> Optional[str]:
@@ -638,6 +638,58 @@ class OpenRouterClient(APIClient):
             "X-Title": "ArcGIS Pro AI Toolbox"
         })
 
+    def get_available_models(self) -> List[str]:
+        """Get list of available models from OpenRouter API."""
+        fallback_models = [
+            "openai/gpt-4o-mini",
+            "openai/o3-mini",
+            "google/gemini-2.0-flash-exp:free",
+            "anthropic/claude-3.5-sonnet",
+            "deepseek/deepseek-chat"
+        ]
+        try:
+            response = requests.get(
+                f"{self.base_url}/models",
+                headers=self.headers,
+                timeout=15,
+                verify=False
+            )
+            response.raise_for_status()
+            data = response.json().get("data", [])
+            models_with_meta = []
+            for model in data:
+                model_id = model.get("id")
+                if not model_id:
+                    continue
+                pricing = model.get("pricing", {})
+                prompt_price = pricing.get("prompt")
+                completion_price = pricing.get("completion")
+
+                def _parse_price(value: Any) -> float:
+                    if value in (None, "", "N/A"):
+                        return float("inf")
+                    try:
+                        return float(value)
+                    except (TypeError, ValueError):
+                        return float("inf")
+
+                models_with_meta.append(
+                    (
+                        model_id,
+                        _parse_price(prompt_price),
+                        _parse_price(completion_price)
+                    )
+                )
+
+            if not models_with_meta:
+                return fallback_models
+
+            # Sort with free models first, then by price, then alphabetically
+            models_with_meta.sort(key=lambda item: (item[1], item[2], item[0]))
+            return [model_id for model_id, _, _ in models_with_meta]
+        except Exception:
+            return fallback_models
+
     def get_completion(self, messages: List[Dict[str, str]], response_format: Optional[str] = None) -> str:
         """Get completion from OpenRouter API."""
         data = {
@@ -729,7 +781,7 @@ def parse_numeric_value(text_value: str) -> Union[float, int]:
     except ValueError:
         raise ValueError(f"Could not parse numeric value from: {text_value}")
 
-def get_env_var(var_name: str = "OPENAI_API_KEY") -> str:
+def get_env_var(var_name: str = "OPENROUTER_API_KEY") -> str:
     """Get environment variable value."""
     return os.environ.get(var_name, "")
 
@@ -755,6 +807,37 @@ def get_client(source: str, api_key: str, **kwargs) -> APIClient:
     return clients[source]()
 # --- END INLINED UTILITY CODE ---
 
+TOOL_DOC_BASE_URL = "https://danmaps.github.io/arcgispro_ai/tools"
+DEFAULT_OPENROUTER_MODELS = [
+    "openai/gpt-4o-mini",
+    "openai/o3-mini",
+    "google/gemini-2.0-flash-exp:free",
+    "anthropic/claude-3.5-sonnet",
+    "deepseek/deepseek-chat"
+]
+
+def get_tool_doc_url(tool_slug: str) -> str:
+    """Return the documentation URL for a tool."""
+    return f"{TOOL_DOC_BASE_URL}/{tool_slug}.html"
+
+def add_tool_doc_link(tool_slug: str) -> None:
+    """Surface a documentation link for troubleshooting."""
+    arcpy.AddMessage(f"For troubleshooting tips, visit {get_tool_doc_url(tool_slug)}")
+
+def resolve_api_key(source: str, api_key_map: dict, tool_slug: str) -> str:
+    """Fetch the API key for a provider, prompting the user if it is missing."""
+    env_var = api_key_map.get(source, "OPENROUTER_API_KEY")
+    if env_var:
+        api_key = get_env_var(env_var)
+        if not api_key:
+            arcpy.AddError(
+                f"No API key found for {source}. Try `setx {env_var} \"your-key\"` and restart ArcGIS Pro."
+            )
+            add_tool_doc_link(tool_slug)
+            raise ValueError(f"Missing API key for {source}")
+        return api_key
+    return ""
+
 def update_model_parameters(source: str, parameters: list, current_model: str = None) -> None:
     """Update model parameters based on the selected source.
     
@@ -776,6 +859,12 @@ def update_model_parameters(source: str, parameters: list, current_model: str = 
             "endpoint": False,
             "deployment": False
         },
+        "OpenRouter": {
+            "models": [],  # Will be populated dynamically
+            "default": "openai/gpt-4o-mini",
+            "endpoint": False,
+            "deployment": False
+        },
         "Claude": {
             "models": ["claude-3-opus-20240229", "claude-3-sonnet-20240229"],
             "default": "claude-3-opus-20240229",
@@ -785,12 +874,6 @@ def update_model_parameters(source: str, parameters: list, current_model: str = 
         "DeepSeek": {
             "models": ["deepseek-chat", "deepseek-coder"],
             "default": "deepseek-chat",
-            "endpoint": False,
-            "deployment": False
-        },
-        "OpenRouter": {
-            "models": ["openai/gpt-4o-mini", "openai/o3-mini", "google/gemini-2.0-flash-exp:free", "anthropic/claude-3.5-sonnet", "deepseek/deepseek-chat"],
-            "default": "openai/gpt-4o-mini",
             "endpoint": False,
             "deployment": False
         },
@@ -807,16 +890,27 @@ def update_model_parameters(source: str, parameters: list, current_model: str = 
     if not config:
         return
 
-    # If OpenAI is selected, fetch available models
+    # If OpenAI or OpenRouter is selected, fetch available models dynamically
     if source == "OpenAI":
         try:
             api_key = get_env_var("OPENAI_API_KEY")
+            if not api_key:
+                raise ValueError("Missing OPENAI_API_KEY")
             client = OpenAIClient(api_key)
             config["models"] = client.get_available_models()
             
         except Exception:
             # If fetching fails, use default hardcoded models
             config["models"] = ["gpt-4o-mini", "gpt-3.5-turbo", "gpt-4", "gpt-4-turbo-preview"]
+    elif source == "OpenRouter":
+        try:
+            api_key = get_env_var("OPENROUTER_API_KEY")
+            if not api_key:
+                raise ValueError("Missing OPENROUTER_API_KEY")
+            client = OpenRouterClient(api_key)
+            config["models"] = client.get_available_models()
+        except Exception:
+            config["models"] = DEFAULT_OPENROUTER_MODELS
 
     # Model parameter
     parameters[1].enabled = bool(config["models"])
@@ -869,8 +963,8 @@ class FeatureLayer(object):
             direction="Input",
         )
         source.filter.type = "ValueList"
-        source.filter.list = ["OpenAI", "Azure OpenAI", "Claude", "DeepSeek", "Local LLM"]
-        source.value = "OpenAI"
+        source.filter.list = ["OpenRouter", "OpenAI", "Azure OpenAI", "Claude", "DeepSeek", "Local LLM"]
+        source.value = "OpenRouter"
 
         model = arcpy.Parameter(
             displayName="Model",
@@ -937,7 +1031,9 @@ class FeatureLayer(object):
         update_model_parameters(source, parameters, current_model)
 
         import re
-        parameters[5].value = re.sub(r'[^\w]', '_', parameters[4].valueAsText)
+        prompt_text = parameters[4].valueAsText or ""
+        if prompt_text:
+            parameters[5].value = re.sub(r'[^\w]', '_', prompt_text)
         return
 
     def updateMessages(self, parameters):
@@ -954,6 +1050,7 @@ class FeatureLayer(object):
         prompt = parameters[4].valueAsText
         output_layer_name = parameters[5].valueAsText
 
+        tool_slug = "FeatureLayer"
         # Get the appropriate API key
         api_key_map = {
             "OpenAI": "OPENAI_API_KEY",
@@ -963,7 +1060,10 @@ class FeatureLayer(object):
             "OpenRouter": "OPENROUTER_API_KEY",
             "Local LLM": None
         }
-        api_key = get_env_var(api_key_map.get(source, "OPENAI_API_KEY"))
+        try:
+            api_key = resolve_api_key(source, api_key_map, tool_slug)
+        except ValueError:
+            return
 
         # Fetch GeoJSON and create feature layer
         try:
@@ -980,6 +1080,7 @@ class FeatureLayer(object):
                 raise ValueError("Received empty GeoJSON data.")
         except Exception as e:
             arcpy.AddError(f"Error fetching GeoJSON: {str(e)}")
+            add_tool_doc_link(tool_slug)
             return
 
         return
@@ -1006,8 +1107,8 @@ class Field(object):
             direction="Input",
         )
         source.filter.type = "ValueList"
-        source.filter.list = ["OpenAI", "Azure OpenAI", "Claude", "DeepSeek", "OpenRouter", "Local LLM", "Wolfram Alpha"]
-        source.value = "OpenAI"
+        source.filter.list = ["OpenRouter", "OpenAI", "Azure OpenAI", "Claude", "DeepSeek", "Local LLM", "Wolfram Alpha"]
+        source.value = "OpenRouter"
 
         model = arcpy.Parameter(
             displayName="Model",
@@ -1119,6 +1220,7 @@ class Field(object):
         prompt = parameters[7].valueAsText
         sql = parameters[8].valueAsText
 
+        tool_slug = "Field"
         # Get the appropriate API key
         api_key_map = {
             "OpenAI": "OPENAI_API_KEY",
@@ -1129,7 +1231,10 @@ class Field(object):
             "Local LLM": None,
             "Wolfram Alpha": "WOLFRAM_ALPHA_API_KEY"
         }
-        api_key = get_env_var(api_key_map.get(source, "OPENAI_API_KEY"))
+        try:
+            api_key = resolve_api_key(source, api_key_map, tool_slug)
+        except ValueError:
+            return
 
         # Add AI response to feature layer
         kwargs = {}
@@ -1140,18 +1245,22 @@ class Field(object):
         if deployment:
             kwargs["deployment_name"] = deployment
 
-        add_ai_response_to_feature_layer(
-            api_key,
-            source,
-            in_layer,
-            out_layer,
-            field_name,
-            prompt,
-            sql,
-            **kwargs
-        )
+        try:
+            add_ai_response_to_feature_layer(
+                api_key,
+                source,
+                in_layer,
+                out_layer,
+                field_name,
+                prompt,
+                sql,
+                **kwargs
+            )
 
-        arcpy.AddMessage(f"{out_layer} created with AI-generated field {field_name}.")
+            arcpy.AddMessage(f"{out_layer} created with AI-generated field {field_name}.")
+        except Exception as e:
+            arcpy.AddError(f"Failed to add AI-generated field: {str(e)}")
+            add_tool_doc_link(tool_slug)
         return
 
     def postExecute(self, parameters):
@@ -1216,13 +1325,18 @@ class GetMapInfo(object):
 
     def execute(self, parameters, messages):
         """The source code of the tool."""
-        in_map = parameters[0].valueAsText
-        out_json = parameters[1].valueAsText
-        map_info = map_to_json(in_map)
-        with open(out_json, "w") as f:
-            json.dump(map_info, f, indent=4)
+        tool_slug = "GetMapInfo"
+        try:
+            in_map = parameters[0].valueAsText
+            out_json = parameters[1].valueAsText
+            map_info = map_to_json(in_map)
+            with open(out_json, "w") as f:
+                json.dump(map_info, f, indent=4)
 
-        arcpy.AddMessage(f"Map info saved to {out_json}")
+            arcpy.AddMessage(f"Map info saved to {out_json}")
+        except Exception as e:
+            arcpy.AddError(f"Error exporting map info: {str(e)}")
+            add_tool_doc_link(tool_slug)
         return
     
 class Python(object):
@@ -1243,8 +1357,8 @@ class Python(object):
             direction="Input",
         )
         source.filter.type = "ValueList"
-        source.filter.list = ["OpenAI", "Azure OpenAI", "Claude", "DeepSeek", "OpenRouter", "Local LLM"]
-        source.value = "OpenAI"
+        source.filter.list = ["OpenRouter", "OpenAI", "Azure OpenAI", "Claude", "DeepSeek", "Local LLM"]
+        source.value = "OpenRouter"
 
         model = arcpy.Parameter(
             displayName="Model",
@@ -1355,6 +1469,7 @@ class Python(object):
         prompt = parameters[5].value
         derived_context = parameters[6].value
 
+        tool_slug = "Python"
         # Get the appropriate API key
         api_key_map = {
             "OpenAI": "OPENAI_API_KEY",
@@ -1364,7 +1479,10 @@ class Python(object):
             "OpenRouter": "OPENROUTER_API_KEY",
             "Local LLM": None
         }
-        api_key = get_env_var(api_key_map.get(source, "OPENAI_API_KEY"))
+        try:
+            api_key = resolve_api_key(source, api_key_map, tool_slug)
+        except ValueError:
+            return
 
         # Generate Python code
         kwargs = {}
@@ -1393,6 +1511,11 @@ class Python(object):
                 **kwargs
             )
 
+            if not code_snippet:
+                arcpy.AddError("No code was generated. Please adjust your prompt or provider and try again.")
+                add_tool_doc_link(tool_slug)
+                return
+
             # if eval == True:
             #     try:
             #         if code_snippet:
@@ -1418,6 +1541,7 @@ class Python(object):
                 )
             else:
                 arcpy.AddError(str(e))
+            add_tool_doc_link(tool_slug)
             return
 
         return
@@ -1446,8 +1570,8 @@ class ConvertTextToNumeric(object):
             direction="Input",
         )
         source.filter.type = "ValueList"
-        source.filter.list = ["OpenAI", "Azure OpenAI", "Claude", "DeepSeek", "OpenRouter", "Local LLM"]
-        source.value = "OpenAI"
+        source.filter.list = ["OpenRouter", "OpenAI", "Azure OpenAI", "Claude", "DeepSeek", "Local LLM"]
+        source.value = "OpenRouter"
 
         model = arcpy.Parameter(
             displayName="Model",
@@ -1525,6 +1649,7 @@ class ConvertTextToNumeric(object):
         in_layer = parameters[4].valueAsText
         field = parameters[5].valueAsText
 
+        tool_slug = "ConvertTextToNumeric"
         # Get the appropriate API key
         api_key_map = {
             "OpenAI": "OPENAI_API_KEY",
@@ -1534,32 +1659,40 @@ class ConvertTextToNumeric(object):
             "OpenRouter": "OPENROUTER_API_KEY",
             "Local LLM": None
         }
-        api_key = get_env_var(api_key_map.get(source, "OPENAI_API_KEY"))
+        try:
+            api_key = resolve_api_key(source, api_key_map, tool_slug)
+        except ValueError:
+            return
 
-        # Get the field values
-        field_values = []
-        with arcpy.da.SearchCursor(in_layer, [field]) as cursor:
-            for row in cursor:
-                field_values.append(row[0])        # Convert the entire series using the selected AI provider
-        kwargs = {}
-        if model:
-            kwargs["model"] = model
-        if endpoint:
-            kwargs["endpoint"] = endpoint
-        if deployment:
-            kwargs["deployment_name"] = deployment
+        try:
+            # Get the field values
+            field_values = []
+            with arcpy.da.SearchCursor(in_layer, [field]) as cursor:
+                for row in cursor:
+                    field_values.append(row[0])
 
-        converted_values = get_client(source, api_key, **kwargs).convert_series_to_numeric(field_values)
+            kwargs = {}
+            if model:
+                kwargs["model"] = model
+            if endpoint:
+                kwargs["endpoint"] = endpoint
+            if deployment:
+                kwargs["deployment_name"] = deployment
 
-        # Add a new field to store the converted numeric values
-        field_name_new = f"{field}_numeric"
-        arcpy.AddField_management(in_layer, field_name_new, "DOUBLE")
+            converted_values = get_client(source, api_key, **kwargs).convert_series_to_numeric(field_values)
 
-        # Update the new field with the converted values
-        with arcpy.da.UpdateCursor(in_layer, [field, field_name_new]) as cursor:
-            for i, row in enumerate(cursor):
-                row[1] = converted_values[i]
-                cursor.updateRow(row)
+            # Add a new field to store the converted numeric values
+            field_name_new = f"{field}_numeric"
+            arcpy.AddField_management(in_layer, field_name_new, "DOUBLE")
+
+            # Update the new field with the converted values
+            with arcpy.da.UpdateCursor(in_layer, [field, field_name_new]) as cursor:
+                for i, row in enumerate(cursor):
+                    row[1] = converted_values[i]
+                    cursor.updateRow(row)
+        except Exception as e:
+            arcpy.AddError(f"Error converting text to numeric values: {str(e)}")
+            add_tool_doc_link(tool_slug)
 
     def postExecute(self, parameters):
         """This method takes place after outputs are processed and
@@ -1583,8 +1716,8 @@ class GenerateTool(object):
             direction="Input",
         )
         source.filter.type = "ValueList"
-        source.filter.list = ["OpenAI", "Azure OpenAI", "Claude", "DeepSeek", "OpenRouter", "Local LLM"]
-        source.value = "OpenAI"
+        source.filter.list = ["OpenRouter", "OpenAI", "Azure OpenAI", "Claude", "DeepSeek", "Local LLM"]
+        source.value = "OpenRouter"
 
         model = arcpy.Parameter(
             displayName="Model",
@@ -1805,6 +1938,7 @@ class GenerateTool(object):
         parameter_definition = parameters[11].valueAsText
         output_toolbox = parameters[12].valueAsText
         
+        tool_slug = "GenerateTool"
         # Get the appropriate API key
         api_key_map = {
             "OpenAI": "OPENAI_API_KEY",
@@ -1814,7 +1948,10 @@ class GenerateTool(object):
             "OpenRouter": "OPENROUTER_API_KEY",
             "Local LLM": None
         }
-        api_key = get_env_var(api_key_map.get(source, "OPENAI_API_KEY"))
+        try:
+            api_key = resolve_api_key(source, api_key_map, tool_slug)
+        except ValueError:
+            return
         
         # Set up parameters for API calls
         kwargs = {}
@@ -1846,11 +1983,13 @@ class GenerateTool(object):
                 
                 if not python_code:
                     arcpy.AddError("Failed to generate Python code from prompt. Please try again.")
+                    add_tool_doc_link(tool_slug)
                     return
                     
                 arcpy.AddMessage("Successfully generated Python code from prompt")
             except Exception as e:
                 arcpy.AddError(f"Error generating Python code: {str(e)}")
+                add_tool_doc_link(tool_slug)
                 return
                 
         # Step 2: Generate the toolbox structure
@@ -1903,6 +2042,7 @@ Requirements:
             
             if not response:
                 arcpy.AddError("Failed to generate toolbox code. Please try again.")
+                add_tool_doc_link(tool_slug)
                 return
                 
             # Extract the Python code from the response
@@ -1932,6 +2072,7 @@ Requirements:
                 
         except Exception as e:
             arcpy.AddError(f"Error generating toolbox: {str(e)}")
+            add_tool_doc_link(tool_slug)
             return
             
         return

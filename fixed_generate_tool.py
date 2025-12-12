@@ -12,8 +12,18 @@ from arcgispro_ai.arcgispro_ai_utils import (
 )
 from arcgispro_ai.core.api_clients import (
     get_client,
-    get_env_var
+    get_env_var,
+    OpenAIClient,
+    OpenRouterClient
 )
+
+DEFAULT_OPENROUTER_MODELS = [
+    "openai/gpt-4o-mini",
+    "openai/o3-mini",
+    "google/gemini-2.0-flash-exp:free",
+    "anthropic/claude-3.5-sonnet",
+    "deepseek/deepseek-chat"
+]
 
 def update_model_parameters(source: str, parameters: list, current_model: str = None) -> None:
     """Update model parameters based on selected source."""
@@ -30,6 +40,12 @@ def update_model_parameters(source: str, parameters: list, current_model: str = 
             "endpoint": False,
             "deployment": False
         },
+        "OpenRouter": {
+            "models": [],
+            "default": "openai/gpt-4o-mini",
+            "endpoint": False,
+            "deployment": False
+        },
         "Claude": {
             "models": ["claude-3-opus-20240229", "claude-3-sonnet-20240229"],
             "default": "claude-3-opus-20240229",
@@ -39,12 +55,6 @@ def update_model_parameters(source: str, parameters: list, current_model: str = 
         "DeepSeek": {
             "models": ["deepseek-chat", "deepseek-coder"],
             "default": "deepseek-chat",
-            "endpoint": False,
-            "deployment": False
-        },
-        "OpenRouter": {
-            "models": ["openai/gpt-4o-mini", "openai/o3-mini", "google/gemini-2.0-flash-exp:free", "anthropic/claude-3.5-sonnet", "deepseek/deepseek-chat"],
-            "default": "openai/gpt-4o-mini",
             "endpoint": False,
             "deployment": False
         },
@@ -60,6 +70,27 @@ def update_model_parameters(source: str, parameters: list, current_model: str = 
     config = model_configs.get(source, {})
     if not config:
         return
+
+    # Fetch dynamic model lists for providers that support it
+    if source == "OpenAI":
+        try:
+            api_key = get_env_var("OPENAI_API_KEY")
+            if not api_key:
+                raise ValueError("Missing OPENAI_API_KEY")
+            client = OpenAIClient(api_key)
+            model_configs["OpenAI"]["models"] = client.get_available_models()
+        except Exception:
+            model_configs["OpenAI"]["models"] = ["gpt-4o-mini", "gpt-3.5-turbo", "gpt-4", "gpt-4-turbo-preview"]
+    elif source == "OpenRouter":
+        try:
+            api_key = get_env_var("OPENROUTER_API_KEY")
+            if not api_key:
+                raise ValueError("Missing OPENROUTER_API_KEY")
+            client = OpenRouterClient(api_key)
+            models = client.get_available_models()
+            model_configs["OpenRouter"]["models"] = models or DEFAULT_OPENROUTER_MODELS
+        except Exception:
+            model_configs["OpenRouter"]["models"] = DEFAULT_OPENROUTER_MODELS
 
     # Model parameter
     parameters[1].enabled = bool(config["models"])
