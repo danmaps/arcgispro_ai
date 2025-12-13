@@ -183,8 +183,8 @@ class FeatureLayerUtils:
             if temp_layer:
                 try:
                     arcpy.management.Delete(temp_layer)
-                except Exception:
-                    pass
+                except Exception as delete_exc:
+                    arcpy.AddWarning(f"Failed to delete temporary layer {temp_layer}: {delete_exc}")
 
         return {
             "name": layer.name,
