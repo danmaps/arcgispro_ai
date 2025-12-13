@@ -729,9 +729,9 @@ class InterpretMap(object):
         client = get_client(source, api_key, **kwargs)
         try:
             if use_screenshot:
-                response = client.get_vision_completion(messages)
+                response = client.get_vision_completion(messages, max_tokens=2000)
             else:
-                response = client.get_completion(messages)
+                response = client.get_completion(messages, max_tokens=2000)
             arcpy.AddMessage(response)
         except Exception as exc:
             arcpy.AddError(f"Failed to interpret the map: {exc}")
