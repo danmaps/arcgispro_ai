@@ -7,7 +7,8 @@ from arcgispro_ai.arcgispro_ai_utils import (
     fetch_geojson,
     generate_python,
     add_ai_response_to_feature_layer,
-    map_to_json
+    map_to_json,
+    capture_interpretation_context
 )
 from arcgispro_ai.core.api_clients import (
     get_client,
@@ -150,6 +151,7 @@ class Toolbox:
         self.tools = [FeatureLayer,
                       Field,
                       GetMapInfo,
+                      InterpretMap,
                       Python,
                       ConvertTextToNumeric,
                       GenerateTool]
@@ -547,7 +549,198 @@ class GetMapInfo(object):
             arcpy.AddError(f"Error exporting map info: {str(e)}")
             add_tool_doc_link(tool_slug)
         return
-    
+
+
+class InterpretMap(object):
+    def __init__(self):
+        """Define the tool (tool name is the name of the class)."""
+        self.label = "Interpret Map"
+        self.description = "Interpret the active map view using an AI assistant"
+        self.params = arcpy.GetParameterInfo()
+        self.canRunInBackground = False
+
+    def getParameterInfo(self):
+        source = arcpy.Parameter(
+            displayName="Source",
+            name="source",
+            datatype="GPString",
+            parameterType="Required",
+            direction="Input",
+        )
+        source.filter.type = "ValueList"
+        source.filter.list = ["OpenRouter", "OpenAI", "Azure OpenAI", "Claude", "DeepSeek", "Local LLM"]
+        source.value = "OpenRouter"
+
+        model = arcpy.Parameter(
+            displayName="Model",
+            name="model",
+            datatype="GPString",
+            parameterType="Optional",
+            direction="Input",
+        )
+        model.value = ""
+        model.enabled = True
+
+        endpoint = arcpy.Parameter(
+            displayName="Endpoint",
+            name="endpoint",
+            datatype="GPString",
+            parameterType="Optional",
+            direction="Input",
+        )
+        endpoint.value = ""
+        endpoint.enabled = False
+
+        deployment = arcpy.Parameter(
+            displayName="Deployment Name",
+            name="deployment",
+            datatype="GPString",
+            parameterType="Optional",
+            direction="Input",
+        )
+        deployment.value = ""
+        deployment.enabled = False
+
+        max_features = arcpy.Parameter(
+            displayName="Max Features Per Layer",
+            name="max_features",
+            datatype="GPLong",
+            parameterType="Optional",
+            direction="Input",
+        )
+        max_features.value = 50
+
+        include_screenshot = arcpy.Parameter(
+            displayName="Include Map Screenshot",
+            name="include_screenshot",
+            datatype="GPBoolean",
+            parameterType="Optional",
+            direction="Input",
+        )
+        include_screenshot.value = True
+
+        return [source, model, endpoint, deployment, max_features, include_screenshot]
+
+    def isLicensed(self):
+        return True
+
+    def updateParameters(self, parameters):
+        source = parameters[0].value
+        current_model = parameters[1].value
+        update_model_parameters(source, parameters, current_model)
+
+        if not parameters[4].value:
+            parameters[4].value = 50
+        if parameters[5].value is None:
+            parameters[5].value = True
+        return
+
+    def updateMessages(self, parameters):
+        return
+
+    def execute(self, parameters, messages):
+        source = parameters[0].valueAsText
+        model = parameters[1].valueAsText
+        endpoint = parameters[2].valueAsText
+        deployment = parameters[3].valueAsText
+        max_features = parameters[4].value
+        include_screenshot = parameters[5].value
+
+        tool_slug = "InterpretMap"
+        api_key_map = {
+            "OpenAI": "OPENAI_API_KEY",
+            "Azure OpenAI": "AZURE_OPENAI_API_KEY",
+            "Claude": "ANTHROPIC_API_KEY",
+            "DeepSeek": "DEEPSEEK_API_KEY",
+            "OpenRouter": "OPENROUTER_API_KEY",
+            "Local LLM": None
+        }
+        try:
+            api_key = resolve_api_key(source, api_key_map, tool_slug)
+        except ValueError:
+            return
+
+        max_features_cap = int(max_features) if max_features else 50
+
+        kwargs = {}
+        if model:
+            kwargs["model"] = model
+        if endpoint:
+            kwargs["endpoint"] = endpoint
+        if deployment:
+            kwargs["deployment_name"] = deployment
+
+        try:
+            context = capture_interpretation_context(max_features_per_layer=max_features_cap)
+        except Exception as exc:
+            arcpy.AddError(f"Unable to collect map context: {exc}")
+            add_tool_doc_link(tool_slug)
+            return
+
+        if context.get("map", {}).get("status") == "No active map":
+            arcpy.AddError("No active map is available for interpretation.")
+            add_tool_doc_link(tool_slug)
+            return
+
+        screenshot_info = context.get("screenshot") if context else None
+        vision_supported = source in ("OpenAI", "Azure OpenAI", "OpenRouter")
+        use_screenshot = bool(include_screenshot) and bool(screenshot_info) and vision_supported
+        if bool(include_screenshot) and not screenshot_info:
+            arcpy.AddWarning("Map screenshot could not be captured; proceeding without an image.")
+        if bool(include_screenshot) and not vision_supported:
+            arcpy.AddWarning("Selected provider does not support images; sending context without the screenshot.")
+
+        textual_context = dict(context)
+        textual_context.pop("screenshot", None)
+
+        interpretation_instructions = (
+            "You are an ArcGIS Pro expert interpreting the active map view. "
+            "Use the provided context to describe what the map communicates at this scale. "
+            "Keep the response concise and structured with these sections: "
+            "1) Interpretation, 2) Verified Observations (grounded in the GeoJSON-like data), "
+            "3) Visual vs Data Notes (call out symbology, scale, or generalization artifacts), "
+            "4) Confidence Notes, and 5) One Suggested Next Step. "
+            "Differentiate measured findings from visual inferences, avoid speculation, and be explicit when data volume limits certainty."
+        )
+
+        user_prompt = (
+            "Review the map context below. Features are limited and geometries are simplified for performance.\n"
+            f"Context JSON:\n{json.dumps(textual_context, indent=2)}"
+        )
+
+        user_content = user_prompt
+        if use_screenshot:
+            user_content = [
+                {"type": "text", "text": user_prompt},
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": f"data:image/png;base64,{screenshot_info['base64']}",
+                        "detail": "low",
+                    },
+                },
+            ]
+
+        messages = [
+            {"role": "system", "content": interpretation_instructions},
+            {"role": "user", "content": user_content},
+        ]
+
+        client = get_client(source, api_key, **kwargs)
+        try:
+            if use_screenshot:
+                response = client.get_vision_completion(messages, max_tokens=2000)
+            else:
+                response = client.get_completion(messages, max_tokens=2000)
+            arcpy.AddMessage(response)
+        except Exception as exc:
+            arcpy.AddError(f"Failed to interpret the map: {exc}")
+            add_tool_doc_link(tool_slug)
+        return
+
+    def postExecute(self, parameters):
+        return
+
 class Python(object):
     def __init__(self):
         """Define the tool (tool name is the name of the class)."""

@@ -50,6 +50,10 @@ class APIClient:
                 # log_message(f"Retrying request due to: {e}")
                 time.sleep(2 ** attempt)  # Exponential backoff
 
+    def get_vision_completion(self, messages: List[Dict[str, Any]], max_tokens: int = 800) -> str:
+        """Default multimodal handler falls back to text completion."""
+        return self.get_completion(messages, response_format=None)
+
 class OpenAIClient(APIClient):
     def __init__(self, api_key: str, model: str = "gpt-4"):
         super().__init__(api_key, "https://api.openai.com/v1")
@@ -73,7 +77,7 @@ class OpenAIClient(APIClient):
             # If API call fails, return default models
             return ["gpt-4o-mini", "gpt-3.5-turbo", "gpt-4", "gpt-4-turbo-preview"]
 
-    def get_completion(self, messages: List[Dict[str, str]], response_format: Optional[str] = None) -> str:
+    def get_completion(self, messages: List[Dict[str, Any]], response_format: Optional[str] = None) -> str:
         """Get completion from OpenAI API."""
         data = {
             "model": self.model,
@@ -93,13 +97,24 @@ class OpenAIClient(APIClient):
         response = self.make_request("chat/completions", data)
         return response["choices"][0]["message"]["content"].strip()
 
+    def get_vision_completion(self, messages: List[Dict[str, Any]], max_tokens: int = 800) -> str:
+        """Handle image + text prompts for OpenAI models."""
+        data = {
+            "model": self.model,
+            "messages": messages,
+            "temperature": 0.2,
+            "max_tokens": max_tokens,
+        }
+        response = self.make_request("chat/completions", data)
+        return response["choices"][0]["message"]["content"].strip()
+
 class AzureOpenAIClient(APIClient):
     def __init__(self, api_key: str, endpoint: str, deployment_name: str):
         super().__init__(api_key, endpoint)
         self.deployment_name = deployment_name
         self.headers["api-key"] = api_key
 
-    def get_completion(self, messages: List[Dict[str, str]], response_format: Optional[str] = None) -> str:
+    def get_completion(self, messages: List[Dict[str, Any]], response_format: Optional[str] = None) -> str:
         """Get completion from Azure OpenAI API."""
         data = {
             "messages": messages,
@@ -113,6 +128,16 @@ class AzureOpenAIClient(APIClient):
         response = self.make_request(f"openai/deployments/{self.deployment_name}/chat/completions?api-version=2023-12-01-preview", data)
         return response["choices"][0]["message"]["content"].strip()
 
+    def get_vision_completion(self, messages: List[Dict[str, Any]], max_tokens: int = 800) -> str:
+        """Handle image + text prompts for Azure OpenAI deployments."""
+        data = {
+            "messages": messages,
+            "temperature": 0.2,
+            "max_tokens": max_tokens,
+        }
+        response = self.make_request(f"openai/deployments/{self.deployment_name}/chat/completions?api-version=2023-12-01-preview", data)
+        return response["choices"][0]["message"]["content"].strip()
+
 class ClaudeClient(APIClient):
     def __init__(self, api_key: str, model: str = "claude-3-opus-20240229"):
         super().__init__(api_key, "https://api.anthropic.com/v1")
@@ -120,7 +145,7 @@ class ClaudeClient(APIClient):
         self.headers["anthropic-version"] = "2023-06-01"
         self.headers["x-api-key"] = api_key
 
-    def get_completion(self, messages: List[Dict[str, str]], response_format: Optional[str] = None) -> str:
+    def get_completion(self, messages: List[Dict[str, Any]], response_format: Optional[str] = None) -> str:
         """Get completion from Claude API."""
         data = {
             "model": self.model,
@@ -140,7 +165,7 @@ class DeepSeekClient(APIClient):
         super().__init__(api_key, "https://api.deepseek.com/v1")
         self.model = model
 
-    def get_completion(self, messages: List[Dict[str, str]], response_format: Optional[str] = None) -> str:
+    def get_completion(self, messages: List[Dict[str, Any]], response_format: Optional[str] = None) -> str:
         """Get completion from DeepSeek API."""
         data = {
             "model": self.model,
@@ -217,7 +242,7 @@ class OpenRouterClient(APIClient):
         except Exception:
             return fallback_models
 
-    def get_completion(self, messages: List[Dict[str, str]], response_format: Optional[str] = None) -> str:
+    def get_completion(self, messages: List[Dict[str, Any]], response_format: Optional[str] = None) -> str:
         """Get completion from OpenRouter API."""
         data = {
             "model": self.model,
@@ -232,13 +257,24 @@ class OpenRouterClient(APIClient):
         response = self.make_request("chat/completions", data)
         return response["choices"][0]["message"]["content"].strip()
 
+    def get_vision_completion(self, messages: List[Dict[str, Any]], max_tokens: int = 800) -> str:
+        """Handle image + text prompts for OpenRouter models."""
+        data = {
+            "model": self.model,
+            "messages": messages,
+            "temperature": 0.2,
+            "max_tokens": max_tokens,
+        }
+        response = self.make_request("chat/completions", data)
+        return response["choices"][0]["message"]["content"].strip()
+
 class LocalLLMClient(APIClient):
     def __init__(self, api_key: str = "", base_url: str = "http://localhost:8000"):
         super().__init__(api_key, base_url)
         # Local LLMs typically don't need auth
         self.headers = {"Content-Type": "application/json"}
 
-    def get_completion(self, messages: List[Dict[str, str]], response_format: Optional[str] = None) -> str:
+    def get_completion(self, messages: List[Dict[str, Any]], response_format: Optional[str] = None) -> str:
         """Get completion from local LLM API."""
         data = {
             "messages": messages,
