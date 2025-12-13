@@ -139,7 +139,7 @@ class FeatureLayerUtils:
 
     @staticmethod
     def _get_layer_features(
-        layer: arcpy.mapping.Layer,
+        layer: Any,
         extent_polygon: Optional[arcpy.Polygon],
         max_features: int = 50,
         simplify_ratio: float = 0.01,
