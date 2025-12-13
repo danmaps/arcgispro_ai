@@ -1,3 +1,4 @@
+import base64
 import time
 from datetime import datetime
 import arcpy
@@ -48,6 +49,23 @@ class MapUtils:
             extent.YMax + expansion["y"],
         )
 
+    @staticmethod
+    def extent_polygon(extent: arcpy.Extent, spatial_reference: Optional[arcpy.SpatialReference]) -> Optional[arcpy.Polygon]:
+        """Create a polygon from an extent."""
+        if not extent:
+            return None
+
+        array = arcpy.Array(
+            [
+                arcpy.Point(extent.XMin, extent.YMin),
+                arcpy.Point(extent.XMin, extent.YMax),
+                arcpy.Point(extent.XMax, extent.YMax),
+                arcpy.Point(extent.XMax, extent.YMin),
+                arcpy.Point(extent.XMin, extent.YMin),
+            ]
+        )
+        return arcpy.Polygon(array, spatial_reference)
+
 
 class FeatureLayerUtils:
     @staticmethod
@@ -86,6 +104,129 @@ class FeatureLayerUtils:
                         ),
                     }
         return layers_info
+
+    @staticmethod
+    def _get_attribute_fields(dataset, max_fields: int = 5) -> List[str]:
+        """Return a small set of representative attribute fields."""
+        skip_names = {"shape", "shape_area", "shape_length", "geometry"}
+        allowed_types = {"OID", "Integer", "SmallInteger", "Double", "Single", "String"}
+        fields: List[str] = []
+
+        if not hasattr(dataset, "fields"):
+            return fields
+
+        for field in dataset.fields:
+            if field.name.lower() in skip_names:
+                continue
+            if field.type not in allowed_types:
+                continue
+            fields.append(field.name)
+            if len(fields) >= max_fields:
+                break
+        return fields
+
+    @staticmethod
+    def _simplify_geometry(geometry: arcpy.Geometry, tolerance: float) -> arcpy.Geometry:
+        """Simplify geometry to reduce payload size."""
+        if not geometry or tolerance <= 0:
+            return geometry
+        try:
+            simplified = geometry.generalize(tolerance, True)
+            return simplified if simplified else geometry
+        except Exception:
+            # If simplification fails, return the original geometry
+            return geometry
+
+    @staticmethod
+    def _get_layer_features(
+        layer: arcpy.mapping.Layer,
+        extent_polygon: Optional[arcpy.Polygon],
+        max_features: int = 50,
+        simplify_ratio: float = 0.01,
+    ) -> Dict[str, Any]:
+        """Collect simplified GeoJSON-like data for the layer within the view extent."""
+        dataset = arcpy.Describe(layer.dataSource)
+        spatial_reference = getattr(dataset, "spatialReference", None)
+        attribute_fields = FeatureLayerUtils._get_attribute_fields(dataset)
+        layer_features: List[Dict[str, Any]] = []
+
+        tolerance = 0
+        if extent_polygon and extent_polygon.extent:
+            tolerance = max(extent_polygon.extent.width, extent_polygon.extent.height) * simplify_ratio
+
+        temp_layer_name = f"interpret_{re.sub('[^0-9A-Za-z]+', '_', layer.name)}_{int(time.time())}"
+        temp_layer = None
+        try:
+            temp_layer = arcpy.management.MakeFeatureLayer(layer, temp_layer_name).getOutput(0)
+            if extent_polygon:
+                arcpy.management.SelectLayerByLocation(temp_layer, "INTERSECT", extent_polygon)
+
+            cursor_fields = ["SHAPE@"] + attribute_fields
+            with arcpy.da.SearchCursor(temp_layer, cursor_fields, spatial_reference=spatial_reference) as cursor:
+                for i, row in enumerate(cursor):
+                    if i >= max_features:
+                        break
+                    geometry = FeatureLayerUtils._simplify_geometry(row[0], tolerance)
+                    attributes = {
+                        attribute_fields[idx]: row[idx + 1]
+                        for idx in range(len(attribute_fields))
+                    }
+                    layer_features.append(
+                        {
+                            "geometry": json.loads(geometry.JSON) if geometry else None,
+                            "attributes": attributes,
+                        }
+                    )
+        except Exception as exc:
+            arcpy.AddWarning(f"Unable to sample features for {layer.name}: {exc}")
+        finally:
+            if temp_layer:
+                try:
+                    arcpy.management.Delete(temp_layer)
+                except Exception:
+                    pass
+
+        return {
+            "name": layer.name,
+            "geometry_type": getattr(dataset, "shapeType", "Unknown"),
+            "renderer": (
+                layer.symbology.renderer.type
+                if hasattr(layer, "symbology") and hasattr(layer.symbology, "renderer")
+                else "Unknown"
+            ),
+            "spatial_reference": getattr(spatial_reference, "name", "Unknown"),
+            "feature_cap": max_features,
+            "field_sample": attribute_fields,
+            "feature_sample_count": len(layer_features),
+            "features": layer_features,
+        }
+
+    @staticmethod
+    def capture_visible_layer_context(
+        active_map: arcpy.mp.Map,
+        view_extent: Optional[arcpy.Extent],
+        max_features_per_layer: int = 50,
+    ) -> List[Dict[str, Any]]:
+        """Gather simplified GeoJSON for visible layers within the active view."""
+        if not active_map:
+            return []
+
+        extent_polygon = None
+        if view_extent:
+            extent_polygon = MapUtils.extent_polygon(view_extent, active_map.spatialReference)
+
+        layers_data: List[Dict[str, Any]] = []
+        for layer in active_map.listLayers():
+            if not getattr(layer, "visible", False) or not getattr(layer, "isFeatureLayer", False):
+                continue
+            layers_data.append(
+                FeatureLayerUtils._get_layer_features(
+                    layer,
+                    extent_polygon,
+                    max_features=max_features_per_layer,
+                )
+            )
+        return layers_data
 
 
 def map_to_json(
@@ -391,6 +532,83 @@ def generate_python(
     except Exception as e:
         arcpy.AddError(str(e))
         return None
+
+
+def capture_map_view_screenshot(
+    view: Any, width: int = 1280, height: int = 720, resolution: int = 150
+) -> Optional[Dict[str, Any]]:
+    """Capture the active map view as a PNG and return metadata plus base64 content."""
+    if not view or not hasattr(view, "exportToPNG"):
+        arcpy.AddWarning("The active view does not support image export; skipping screenshot.")
+        return None
+
+    temp_dir = tempfile.mkdtemp()
+    screenshot_path = os.path.join(temp_dir, "map_view.png")
+    try:
+        view.exportToPNG(screenshot_path, width=width, height=height, resolution=resolution)
+        with open(screenshot_path, "rb") as image_file:
+            encoded = base64.b64encode(image_file.read()).decode("utf-8")
+        return {
+            "path": screenshot_path,
+            "width": width,
+            "height": height,
+            "resolution": resolution,
+            "base64": encoded,
+        }
+    except Exception as exc:
+        arcpy.AddWarning(f"Unable to capture map view screenshot: {exc}")
+        return None
+
+
+def capture_interpretation_context(max_features_per_layer: int = 50) -> Dict[str, Any]:
+    """Collect view, map, and layer context for interpretation."""
+    aprx = arcpy.mp.ArcGISProject("CURRENT")
+    active_map = aprx.activeMap
+    active_view = aprx.activeView
+
+    if not active_map:
+        return {
+            "map": {"status": "No active map"},
+            "view": {},
+            "layers": [],
+            "screenshot": None,
+        }
+
+    camera = getattr(active_view, "camera", None)
+    extent = camera.getExtent() if camera and hasattr(camera, "getExtent") else None
+    view_details = {
+        "scale": getattr(camera, "scale", None) if camera else None,
+        "spatial_reference": getattr(active_map.spatialReference, "name", "Unknown"),
+    }
+    if extent:
+        view_details.update(
+            {
+                "extent": {
+                    "xmin": extent.XMin,
+                    "ymin": extent.YMin,
+                    "xmax": extent.XMax,
+                    "ymax": extent.YMax,
+                }
+            }
+        )
+
+    screenshot = capture_map_view_screenshot(active_view)
+    visible_layers = FeatureLayerUtils.capture_visible_layer_context(
+        active_map, extent, max_features_per_layer=max_features_per_layer
+    )
+
+    map_metadata = {
+        "name": active_map.name,
+        "spatial_reference": getattr(active_map.spatialReference, "name", "Unknown"),
+        "visible_layer_count": len([lyr for lyr in active_map.listLayers() if getattr(lyr, "visible", False)]),
+    }
+
+    return {
+        "map": map_metadata,
+        "view": view_details,
+        "layers": visible_layers,
+        "screenshot": screenshot,
+    }
 
 
 def add_ai_response_to_feature_layer(
