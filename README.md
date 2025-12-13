@@ -39,6 +39,7 @@ ArcGIS Pro AI Toolbox is the only BYOK, open‑source plugin that brings conver
 - <b>Add AI Generated Field</b>: Create rich text from attributes using AI.
 - <b>Get Map Info</b>: Extract map context to JSON for smarter prompts.
 - <b>Generate Python Code</b>: ArcPy snippets tuned to your map.
+- <b>Interpret Map</b>: Summarize the active view with an AI-driven interpretation that combines a screenshot and spatial context.
 - <b>Create AI Feature Layer</b>: Describe data, get a layer.
 - <b>Convert Text to Numeric</b>: Standardize messy columns fast.
 

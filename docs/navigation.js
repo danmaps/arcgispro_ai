@@ -28,6 +28,7 @@ document.addEventListener('DOMContentLoaded', function() {
         <a href="${rootPath}tools/FeatureLayer.html">Create AI Feature Layer</a>
         <a href="${rootPath}tools/Field.html">Add AI-Generated Field</a>
         <a href="${rootPath}tools/GetMapInfo.html">Get Map Info</a>
+        <a href="${rootPath}tools/InterpretMap.html">Interpret Map</a>
         <a href="${rootPath}tools/Python.html">Generate Python Code</a>
         <a href="${rootPath}tools/ConvertTextToNumeric.html">Convert Text to Numeric</a>
         <a href="${rootPath}tools/GenerateTool.html">Generate Tool</a>
