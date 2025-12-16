@@ -34,6 +34,26 @@ def add_tool_doc_link(tool_slug: str) -> None:
     """Surface a documentation link for troubleshooting."""
     arcpy.AddMessage(f"For troubleshooting tips, visit {get_tool_doc_url(tool_slug)}")
 
+
+def get_feature_count_value(layer: str, sql_query: str = None) -> int:
+    """Return the count of features for the provided layer and SQL query."""
+    temp_layer = None
+    try:
+        count_target = layer
+        if sql_query:
+            temp_name = f"budget_count_{os.urandom(4).hex()}"
+            temp_layer = arcpy.management.MakeFeatureLayer(layer, temp_name, sql_query).getOutput(0)
+            count_target = temp_layer
+        return int(arcpy.management.GetCount(count_target).getOutput(0))
+    except Exception:
+        return -1
+    finally:
+        if temp_layer:
+            try:
+                arcpy.management.Delete(temp_layer)
+            except Exception:
+                pass
+
 def resolve_api_key(source: str, api_key_map: dict, tool_slug: str) -> str:
     """Fetch the API key for a provider, prompting the user if it is missing."""
     env_var = api_key_map.get(source, "OPENROUTER_API_KEY")
@@ -391,7 +411,25 @@ class Field(object):
             direction="Input"
         )
 
-        params = [source, model, endpoint, deployment, in_layer, out_layer, field_name, prompt, sql]
+        budget_limit_enabled = arcpy.Parameter(
+            displayName="Budget Conscious",
+            name="budget_limit_enabled",
+            datatype="GPBoolean",
+            parameterType="Required",
+            direction="Input",
+        )
+        budget_limit_enabled.value = True
+
+        budget_limit = arcpy.Parameter(
+            displayName="Max API Calls",
+            name="budget_limit",
+            datatype="GPLong",
+            parameterType="Required",
+            direction="Input",
+        )
+        budget_limit.value = 10
+
+        params = [source, model, endpoint, deployment, in_layer, out_layer, field_name, prompt, sql, budget_limit_enabled, budget_limit]
         return params
 
     def isLicensed(self):
@@ -417,6 +455,25 @@ class Field(object):
     def updateMessages(self, parameters):
         """Modify the messages created by internal validation for each tool
         parameter. This method is called after internal validation."""
+        in_layer = parameters[4]
+        sql = parameters[8]
+        budget_enabled = parameters[9]
+        budget_limit = parameters[10]
+
+        if in_layer.altered and in_layer.value:
+            feature_count = get_feature_count_value(in_layer.valueAsText, sql.valueAsText)
+            if feature_count >= 0:
+                source = parameters[0].valueAsText or "the selected provider"
+                in_layer.setWarningMessage(
+                    f"This will send {feature_count} requests to {source}."
+                )
+                if budget_enabled.value:
+                    allowed = budget_limit.value
+                    if allowed is not None and feature_count > int(allowed):
+                        budget_limit.setErrorMessage(
+                            f"Budget conscious mode limits requests to {allowed}, "
+                            f"but {feature_count} features match the layer and SQL filter."
+                        )
         return
 
     def execute(self, parameters, messages):
@@ -430,6 +487,17 @@ class Field(object):
         field_name = parameters[6].valueAsText
         prompt = parameters[7].valueAsText
         sql = parameters[8].valueAsText
+        budget_limit_enabled = parameters[9].value
+        budget_limit = parameters[10].value
+
+        feature_count = get_feature_count_value(in_layer, sql)
+        if budget_limit_enabled and budget_limit is not None and feature_count > int(budget_limit):
+            arcpy.AddError(
+                "Budget conscious mode is enabled. "
+                f"The tool would send {feature_count} requests which exceeds the limit of {budget_limit}. "
+                "Increase the limit or disable budget conscious mode to continue."
+            )
+            return
 
         tool_slug = "Field"
         # Get the appropriate API key
@@ -465,6 +533,8 @@ class Field(object):
                 field_name,
                 prompt,
                 sql,
+                enforce_request_limit=budget_limit_enabled,
+                max_requests=int(budget_limit) if budget_limit is not None else None,
                 **kwargs
             )
 
@@ -1022,7 +1092,25 @@ class ConvertTextToNumeric(object):
             direction="Input",
         )
 
-        params = [source, model, endpoint, deployment, in_layer, field]
+        budget_limit_enabled = arcpy.Parameter(
+            displayName="Budget Conscious",
+            name="budget_limit_enabled",
+            datatype="GPBoolean",
+            parameterType="Required",
+            direction="Input",
+        )
+        budget_limit_enabled.value = True
+
+        budget_limit = arcpy.Parameter(
+            displayName="Max API Calls",
+            name="budget_limit",
+            datatype="GPLong",
+            parameterType="Required",
+            direction="Input",
+        )
+        budget_limit.value = 10
+
+        params = [source, model, endpoint, deployment, in_layer, field, budget_limit_enabled, budget_limit]
         return params
 
     def isLicensed(self):
@@ -1042,6 +1130,23 @@ class ConvertTextToNumeric(object):
     def updateMessages(self, parameters):
         """Modify the messages created by internal validation for each tool
         parameter. This method is called after internal validation."""
+        in_layer = parameters[4]
+        budget_enabled = parameters[6]
+        budget_limit = parameters[7]
+
+        if in_layer.altered and in_layer.value:
+            feature_count = get_feature_count_value(in_layer.valueAsText)
+            if feature_count >= 0:
+                source = parameters[0].valueAsText or "the selected provider"
+                in_layer.setWarningMessage(
+                    f"This will send {feature_count} requests to {source}."
+                )
+                if budget_enabled.value:
+                    allowed = budget_limit.value
+                    if allowed is not None and feature_count > int(allowed):
+                        budget_limit.setErrorMessage(
+                            f"Budget conscious mode limits requests to {allowed}, but {feature_count} features are selected."
+                        )
         return
 
     def execute(self, parameters, messages):
@@ -1051,6 +1156,17 @@ class ConvertTextToNumeric(object):
         deployment = parameters[3].valueAsText
         in_layer = parameters[4].valueAsText
         field = parameters[5].valueAsText
+        budget_limit_enabled = parameters[6].value
+        budget_limit = parameters[7].value
+
+        feature_count = get_feature_count_value(in_layer)
+        if budget_limit_enabled and budget_limit is not None and feature_count > int(budget_limit):
+            arcpy.AddError(
+                "Budget conscious mode is enabled. "
+                f"The tool would send {feature_count} requests which exceeds the limit of {budget_limit}. "
+                "Increase the limit or disable budget conscious mode to continue."
+            )
+            return
 
         tool_slug = "ConvertTextToNumeric"
         # Get the appropriate API key
