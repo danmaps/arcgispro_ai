@@ -619,6 +619,8 @@ def add_ai_response_to_feature_layer(
     field_name: str,
     prompt_template: str,
     sql_query: Optional[str] = None,
+    enforce_request_limit: bool = True,
+    max_requests: Optional[int] = 10,
     **kwargs,
 ) -> None:
     """Enrich feature layer with AI-generated responses."""
@@ -627,6 +629,30 @@ def add_ai_response_to_feature_layer(
         layer_to_use = out_layer
     else:
         layer_to_use = in_layer
+
+    if enforce_request_limit and max_requests is not None:
+        temp_layer = None
+        try:
+            count_target = layer_to_use
+            if sql_query:
+                temp_name = f"ai_field_budget_{os.urandom(4).hex()}"
+                temp_layer = arcpy.management.MakeFeatureLayer(
+                    layer_to_use, temp_name, sql_query
+                ).getOutput(0)
+                count_target = temp_layer
+
+            feature_count = int(arcpy.management.GetCount(count_target).getOutput(0))
+            if feature_count > max_requests:
+                raise ValueError(
+                    f"Budget conscious mode is enabled. The operation would trigger {feature_count} requests, "
+                    f"which exceeds the current limit of {max_requests}."
+                )
+        finally:
+            if temp_layer:
+                try:
+                    arcpy.management.Delete(temp_layer)
+                except Exception:
+                    pass
 
     # Add new field for AI responses
     existing_fields = [f.name for f in arcpy.ListFields(layer_to_use)]
