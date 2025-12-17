@@ -8,16 +8,20 @@
 <link rel="stylesheet" href="style.css">
 <script src="navigation.js"></script>
 </head>
-<body>
-<header>
+<body class="home">
+<canvas id="hero-splash" aria-hidden="true"></canvas>
+<!--<header>
   <img src="logo_transparent.png" alt="logo">
   <h1>Your GIS, now AI-supercharged</h1>
-</header>
+</header>-->
 
 <div class="hero">
-  <h1>ArcGIS Pro AI Toolbox</h1>
-  <h2>Just download the Python toolbox and start using AI in ArcGIS Pro—no install process, no fuss.</h2>
-  <a href="https://github.com/danmaps/arcgispro_ai/releases/latest/download/arcgispro_ai.pyt" class="cta" download>Download .pyt Toolbox</a>
+  <div class="hero-content">
+    <p class="eyebrow">ArcGIS Pro AI Toolbox</p>
+    <h1>Build expressive AI workflows inside ArcGIS Pro.</h1>
+    <h2>Download the lightweight Python toolbox and start blending maps with AI&mdash;no installs, no friction.</h2>
+    <a href="https://github.com/danmaps/arcgispro_ai/releases/latest/download/arcgispro_ai.pyt" class="cta" download>Download .pyt Toolbox</a>
+  </div>
   <details class="api-key-details">
     <summary>How do I get an OpenRouter API key?</summary>
     <ol>
@@ -29,7 +33,7 @@
       </li>
       <li>(Optional) Add credit on the <a href="https://openrouter.ai/settings/billing" target="_blank">Billing</a> page or attach a card so requests can run without limits</li>
     </ol>
-    <h4>Checking Usage & Cost</h4>
+    <h4>Checking Usage &amp; Cost</h4>
     <ul>
       <li>Review recent calls and spending on the <a href="https://openrouter.ai/activity" target="_blank">OpenRouter Activity</a> page.</li>
       <li>Mini models on OpenRouter are inexpensive. Typical runs cost under $0.01.</li>
@@ -59,11 +63,12 @@
       <tr>
         <td><a href="tools/Python.html">Generate Python Code</a></td>
         <td>Create arcpy code snippets tailored to your map and task.</td>
-        <td>Very powerful. My personal favorite. 🤓 I've spent the most time testing this one.</td>
-      </tr>      <tr>
+        <td>Very powerful. My personal favorite. I've spent the most time testing this one.</td>
+      </tr>
+      <tr>
         <td><a href="tools/ConvertTextToNumeric.html">Convert Text to Numeric</a></td>
         <td>Clean, parsing of text fields into numeric values.</td>
-        <td>Solves a common problem with AI-generated fields. Think "seventy five" ➡️ 75.</td>
+        <td>Solves a common problem with AI-generated fields. Think "seventy five" &rarr; 75.</td>
       </tr>
       <tr>
         <td><a href="tools/GenerateTool.html">Generate Tool</a></td>
@@ -79,7 +84,10 @@
 </section>
 
 <footer>
-  © 2025 <a href="https://danmaps.github.io/" target="_blank" style="color:inherit;text-decoration:underline;">Danny McVey</a> · Made with ☕ in California
+  &copy; 2025 <a href="https://danmaps.github.io/" target="_blank" style="color:inherit;text-decoration:underline;">Danny McVey</a> &middot; Made with &hearts; in California
 </footer>
+<script src="home-splash.js" defer></script>
 </body>
 </html>
+
+
