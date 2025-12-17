@@ -208,6 +208,48 @@ class FeatureLayerUtils:
         }
 
     @staticmethod
+    def _summarize_layer(layer: Any) -> Dict[str, Any]:
+        """Return a lightweight description for non-feature layers."""
+        info: Dict[str, Any] = {
+            "name": getattr(layer, "name", "Unknown Layer"),
+            "visible": getattr(layer, "visible", False),
+            "is_feature_layer": getattr(layer, "isFeatureLayer", False),
+            "is_group_layer": getattr(layer, "isGroupLayer", False),
+            "layer_type": getattr(layer, "longName", getattr(layer, "name", "Unknown")),
+        }
+        try:
+            describe_target = None
+            if hasattr(layer, "supports") and layer.supports("DATASOURCE"):
+                describe_target = layer.dataSource
+            elif hasattr(layer, "dataSource"):
+                describe_target = layer.dataSource
+            if describe_target:
+                dataset = arcpy.Describe(describe_target)
+            else:
+                dataset = arcpy.Describe(layer)
+            info.update(
+                {
+                    "source_type": getattr(dataset, "dataType", "Unknown"),
+                    "spatial_reference": getattr(
+                        getattr(dataset, "spatialReference", None), "name", "Unknown"
+                    ),
+                    "extent": (
+                        {
+                            "xmin": dataset.extent.XMin,
+                            "ymin": dataset.extent.YMin,
+                            "xmax": dataset.extent.XMax,
+                            "ymax": dataset.extent.YMax,
+                        }
+                        if hasattr(dataset, "extent") and dataset.extent
+                        else None
+                    ),
+                }
+            )
+        except Exception:
+            info["source_type"] = "Unknown"
+        return info
+
+    @staticmethod
     def capture_visible_layer_context(
         active_map: ArcGISMapType,
         view_extent: Optional[arcpy.Extent],
@@ -222,16 +264,30 @@ class FeatureLayerUtils:
             extent_polygon = MapUtils.extent_polygon(view_extent, active_map.spatialReference)
 
         layers_data: List[Dict[str, Any]] = []
-        for layer in active_map.listLayers():
-            if not getattr(layer, "visible", False) or not getattr(layer, "isFeatureLayer", False):
-                continue
-            layers_data.append(
-                FeatureLayerUtils._get_layer_features(
-                    layer,
-                    extent_polygon,
-                    max_features=max_features_per_layer,
+
+        def _process_layer(layer_obj: Any) -> None:
+            if not getattr(layer_obj, "visible", False):
+                return
+            if getattr(layer_obj, "isGroupLayer", False):
+                child_layers = []
+                if hasattr(layer_obj, "listLayers"):
+                    child_layers = layer_obj.listLayers()
+                for child in child_layers or []:
+                    _process_layer(child)
+                return
+            if getattr(layer_obj, "isFeatureLayer", False):
+                layers_data.append(
+                    FeatureLayerUtils._get_layer_features(
+                        layer_obj,
+                        extent_polygon,
+                        max_features=max_features_per_layer,
+                    )
                 )
-            )
+            else:
+                layers_data.append(FeatureLayerUtils._summarize_layer(layer_obj))
+
+        for layer in active_map.listLayers():
+            _process_layer(layer)
         return layers_data
 
 
@@ -647,6 +703,11 @@ def capture_interpretation_context(max_features_per_layer: int = 50) -> Dict[str
         active_map, extent, max_features_per_layer=max_features_per_layer
     )
 
+    try:
+        map_overview = map_to_json(active_map.name)
+    except Exception:
+        map_overview = {}
+
     map_metadata = {
         "name": active_map.name,
         "spatial_reference": getattr(active_map.spatialReference, "name", "Unknown"),
@@ -655,6 +716,7 @@ def capture_interpretation_context(max_features_per_layer: int = 50) -> Dict[str
 
     return {
         "map": map_metadata,
+        "map_overview": map_overview,
         "view": view_details,
         "layers": visible_layers,
         "screenshot": screenshot,

@@ -52,6 +52,7 @@ class APIClient:
 
     def get_vision_completion(self, messages: List[Dict[str, Any]], max_tokens: int = 800) -> str:
         """Default multimodal handler falls back to text completion."""
+        arcpy.AddMessage("Multimodal input not supported for this AI provider; falling back to text-only completion.")
         return self.get_completion(messages, response_format=None)
 
 class OpenAIClient(APIClient):
@@ -91,10 +92,6 @@ class OpenAIClient(APIClient):
             "temperature": 0.5,
             "max_tokens": token_limit,
         }
-        
-        # For GPT-3.5-turbo, ensure we're using the latest model version
-        if self.model == "gpt-3.5-turbo":
-            data["model"] = "gpt-3.5-turbo-0125"
         
         # Only add response_format for GPT-4 models
         if response_format == "json_object" and self.model.startswith("gpt-4"):

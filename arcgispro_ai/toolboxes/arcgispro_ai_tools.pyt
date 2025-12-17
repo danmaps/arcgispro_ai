@@ -1,6 +1,8 @@
 import arcpy
 import json
 import os
+import html
+import re
 from arcgispro_ai.arcgispro_ai_utils import (
     MapUtils,
     FeatureLayerUtils,
@@ -49,6 +51,50 @@ def get_tool_doc_url(tool_slug: str) -> str:
 def add_tool_doc_link(tool_slug: str) -> None:
     """Surface a documentation link for troubleshooting."""
     arcpy.AddMessage(f"For troubleshooting tips, visit {get_tool_doc_url(tool_slug)}")
+
+
+def render_markdown_to_html(markdown_text: str) -> str:
+    """Convert a limited subset of markdown to styled HTML."""
+    lines = (markdown_text or "").strip().splitlines()
+    html_parts = []
+    in_list = False
+
+    def close_list():
+        nonlocal in_list
+        if in_list:
+            html_parts.append("</ul>")
+            in_list = False
+
+    def format_inline(value: str) -> str:
+        escaped = html.escape(value)
+        return re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", escaped)
+
+    for raw_line in lines:
+        line = raw_line.rstrip()
+        if not line.strip():
+            close_list()
+            continue
+        if line.startswith("###"):
+            close_list()
+            heading_text = line.lstrip("#").strip()
+            html_parts.append(
+                f"<h3 style='margin:16px 0 6px;font-size:15px;color:#0f172a;'>{format_inline(heading_text)}</h3>"
+            )
+        elif line.lstrip().startswith("- "):
+            if not in_list:
+                html_parts.append("<ul style='margin:6px 0 12px 18px; padding:0;'>")
+                in_list = True
+            bullet = line.lstrip()[2:].strip()
+            html_parts.append(
+                f"<li style='margin-bottom:4px;color:#1f2937;'>{format_inline(bullet)}</li>"
+            )
+        else:
+            close_list()
+            html_parts.append(
+                f"<p style='margin:6px 0 12px;color:#111827;'>{format_inline(line.strip())}</p>"
+            )
+    close_list()
+    return "".join(html_parts)
 
 
 def get_feature_count_value(layer: str, sql_query: str = None) -> int:
@@ -826,15 +872,21 @@ class InterpretMap(object):
         interpretation_instructions = (
             "You are an ArcGIS Pro expert interpreting the active map view. "
             "Use the provided context to describe what the map communicates at this scale. "
+            "If an image of the map view is provided, treat it as the source of truth for what is on screen and reference it even if the textual context is sparse or contradictory. "
             "Keep the response concise and structured with these sections: "
-            "1) Interpretation, 2) Verified Observations (grounded in the GeoJSON-like data), "
-            "3) Visual vs Data Notes (call out symbology, scale, or generalization artifacts), "
-            "4) Confidence Notes, and 5) One Suggested Next Step. "
-            "Differentiate measured findings from visual inferences, avoid speculation, and be explicit when data volume limits certainty."
+            "1) Interpretation, "
+            "2) Verified Observations (grounded in the image first (if provided), then GeoJSON-like data), "
+            "3) Interpretation Boundaries (what the current symbology, scale, and representation support or limit), "
+            "4) Confidence Notes, and "
+            "5) One Suggested Next Step. "
+            "Only describe limitations that are visible or implied by the map itself (e.g., scale, aggregation, symbology choices). "
+            "Do not speculate about unseen data processing, network modeling, or simplification unless there is visual evidence on the map. "
+            "Clearly distinguish between measured data, visual inference, and uncertainty."
         )
 
+
         user_prompt = (
-            "Review the map context below. Features are limited and geometries are simplified for performance.\n"
+            "Review the map context below. It includes the current view details, sampled layer data, and other metadata.\n"
             f"Context JSON:\n{json.dumps(textual_context, indent=2)}"
         )
 
@@ -862,7 +914,36 @@ class InterpretMap(object):
                 response = client.get_vision_completion(messages, max_tokens=2000)
             else:
                 response = client.get_completion(messages, max_tokens=2000)
-            arcpy.AddMessage(response)
+            formatted_response = response.strip()
+
+            interpretation_html = render_markdown_to_html(formatted_response)
+            html_sections = [
+                "<html>",
+                "<body>",
+                "<div style='font-family:Segoe UI, sans-serif; line-height:1.5; font-size:13px;'>",
+                interpretation_html,
+            ]
+
+            if screenshot_info:
+                preview_width = screenshot_info.get("width")
+                preview_height = screenshot_info.get("height")
+                resolution = screenshot_info.get("resolution", "unknown")
+                size_label = f"{preview_width or '?'}x{preview_height or '?'} px @ {resolution} dpi"
+                html_sections.extend(
+                    [
+                        "<div style='margin-top:18px;'>",
+                        "<div style='font-weight:600;color:#0f172a;margin-bottom:6px;'>"
+                        f"Map screenshot preview <span style='font-weight:400;color:#475569;'>({size_label})</span>"
+                        "</div>",
+                        "<div>",
+                        f"<img src='data:image/png;base64,{screenshot_info['base64']}' "
+                        "style='max-width:100%;border:1px solid #d1d5db;border-radius:6px; box-shadow:0 5px 20px rgba(15,23,42,0.15);' />",
+                        "</div>"
+                    ]
+                )
+
+            html_sections.extend(["</div>", "</body>", "</html>"])
+            arcpy.AddMessage("".join(html_sections))
         except Exception as exc:
             arcpy.AddError(f"Failed to interpret the map: {exc}")
             add_tool_doc_link(tool_slug)
