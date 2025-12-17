@@ -77,13 +77,19 @@ class OpenAIClient(APIClient):
             # If API call fails, return default models
             return ["gpt-4o-mini", "gpt-3.5-turbo", "gpt-4", "gpt-4-turbo-preview"]
 
-    def get_completion(self, messages: List[Dict[str, Any]], response_format: Optional[str] = None) -> str:
+    def get_completion(
+        self,
+        messages: List[Dict[str, Any]],
+        response_format: Optional[str] = None,
+        max_tokens: Optional[int] = None,
+    ) -> str:
         """Get completion from OpenAI API."""
+        token_limit = max_tokens if max_tokens is not None else 4096
         data = {
             "model": self.model,
             "messages": messages,
             "temperature": 0.5,
-            "max_tokens": 4096,
+            "max_tokens": token_limit,
         }
         
         # For GPT-3.5-turbo, ensure we're using the latest model version
@@ -114,12 +120,18 @@ class AzureOpenAIClient(APIClient):
         self.deployment_name = deployment_name
         self.headers["api-key"] = api_key
 
-    def get_completion(self, messages: List[Dict[str, Any]], response_format: Optional[str] = None) -> str:
+    def get_completion(
+        self,
+        messages: List[Dict[str, Any]],
+        response_format: Optional[str] = None,
+        max_tokens: Optional[int] = None,
+    ) -> str:
         """Get completion from Azure OpenAI API."""
+        token_limit = max_tokens if max_tokens is not None else 5000
         data = {
             "messages": messages,
             "temperature": 0.5,
-            "max_tokens": 5000,
+            "max_tokens": token_limit,
         }
         
         if response_format == "json_object":
@@ -145,13 +157,19 @@ class ClaudeClient(APIClient):
         self.headers["anthropic-version"] = "2023-06-01"
         self.headers["x-api-key"] = api_key
 
-    def get_completion(self, messages: List[Dict[str, Any]], response_format: Optional[str] = None) -> str:
+    def get_completion(
+        self,
+        messages: List[Dict[str, Any]],
+        response_format: Optional[str] = None,
+        max_tokens: Optional[int] = None,
+    ) -> str:
         """Get completion from Claude API."""
+        token_limit = max_tokens if max_tokens is not None else 5000
         data = {
             "model": self.model,
             "messages": [{"role": m["role"], "content": m["content"]} for m in messages],
             "temperature": 0.5,
-            "max_tokens": 5000,
+            "max_tokens": token_limit,
         }
         
         if response_format == "json_object":
@@ -165,13 +183,19 @@ class DeepSeekClient(APIClient):
         super().__init__(api_key, "https://api.deepseek.com/v1")
         self.model = model
 
-    def get_completion(self, messages: List[Dict[str, Any]], response_format: Optional[str] = None) -> str:
+    def get_completion(
+        self,
+        messages: List[Dict[str, Any]],
+        response_format: Optional[str] = None,
+        max_tokens: Optional[int] = None,
+    ) -> str:
         """Get completion from DeepSeek API."""
+        token_limit = max_tokens if max_tokens is not None else 5000
         data = {
             "model": self.model,
             "messages": messages,
             "temperature": 0.5,
-            "max_tokens": 5000,
+            "max_tokens": token_limit,
         }
         
         if response_format == "json_object":
@@ -242,13 +266,19 @@ class OpenRouterClient(APIClient):
         except Exception:
             return fallback_models
 
-    def get_completion(self, messages: List[Dict[str, Any]], response_format: Optional[str] = None) -> str:
+    def get_completion(
+        self,
+        messages: List[Dict[str, Any]],
+        response_format: Optional[str] = None,
+        max_tokens: Optional[int] = None,
+    ) -> str:
         """Get completion from OpenRouter API."""
+        token_limit = max_tokens if max_tokens is not None else 5000
         data = {
             "model": self.model,
             "messages": messages,
             "temperature": 0.5,
-            "max_tokens": 5000,
+            "max_tokens": token_limit,
         }
         
         if response_format == "json_object":
@@ -274,12 +304,18 @@ class LocalLLMClient(APIClient):
         # Local LLMs typically don't need auth
         self.headers = {"Content-Type": "application/json"}
 
-    def get_completion(self, messages: List[Dict[str, Any]], response_format: Optional[str] = None) -> str:
+    def get_completion(
+        self,
+        messages: List[Dict[str, Any]],
+        response_format: Optional[str] = None,
+        max_tokens: Optional[int] = None,
+    ) -> str:
         """Get completion from local LLM API."""
+        token_limit = max_tokens if max_tokens is not None else 5000
         data = {
             "messages": messages,
             "temperature": 0.5,
-            "max_tokens": 5000,
+            "max_tokens": token_limit,
         }
         
         if response_format == "json_object":

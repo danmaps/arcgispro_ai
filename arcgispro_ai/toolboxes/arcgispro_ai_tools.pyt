@@ -26,6 +26,22 @@ DEFAULT_OPENROUTER_MODELS = [
     "deepseek/deepseek-chat"
 ]
 
+# Known multimodal model markers per provider. The match is case-insensitive and
+# only used to guard tools that attempt to send screenshots.
+VISION_MODEL_HINTS = {
+    "OpenAI": ["gpt-4o", "gpt-4.1", "omni", "vision"],
+    "Azure OpenAI": ["gpt-4o", "gpt-4.1", "omni", "vision"],
+    "OpenRouter": [
+        "openai/gpt-4o",
+        "openai/gpt-4o-mini",
+        "openai/gpt-4.1",
+        "google/gemini",
+        "anthropic/claude-3.5",
+        "anthropic/claude-3-opus",
+        "meta-llama/llama-3.2-vision",
+    ],
+}
+
 def get_tool_doc_url(tool_slug: str) -> str:
     """Return the documentation URL for a tool."""
     return f"{TOOL_DOC_BASE_URL}/{tool_slug}.html"
@@ -157,6 +173,20 @@ def update_model_parameters(source: str, parameters: list, current_model: str = 
 
     # Deployment parameter
     parameters[3].enabled = config["deployment"]
+
+
+def model_supports_images(source: str, model: str = None) -> bool:
+    """Return True if the selected model is known to accept image input."""
+    provider_hints = VISION_MODEL_HINTS.get(source, [])
+    normalized = (model or "").lower().strip() if model else ""
+
+    if not provider_hints:
+        return False
+    if not normalized:
+        # Fall back to provider defaults if the user did not specify a model name.
+        return source in ("OpenAI", "Azure OpenAI")
+
+    return any(hint in normalized for hint in provider_hints)
 
 class Toolbox:
     def __init__(self):
@@ -470,9 +500,9 @@ class Field(object):
                 if budget_enabled.value:
                     allowed = budget_limit.value
                     if allowed is not None and feature_count > int(allowed):
-                        budget_limit.setErrorMessage(
-                            f"Budget conscious mode limits requests to {allowed}, "
-                            f"but {feature_count} features match the layer and SQL filter."
+                        budget_limit.setWarningMessage(
+                            f"Budget conscious mode will process only {allowed} of "
+                            f"{feature_count} matching features."
                         )
         return
 
@@ -491,13 +521,9 @@ class Field(object):
         budget_limit = parameters[10].value
 
         feature_count = get_feature_count_value(in_layer, sql)
-        if budget_limit_enabled and budget_limit is not None and feature_count > int(budget_limit):
-            arcpy.AddError(
-                "Budget conscious mode is enabled. "
-                f"The tool would send {feature_count} requests which exceeds the limit of {budget_limit}. "
-                "Increase the limit or disable budget conscious mode to continue."
-            )
-            return
+        request_limit = None
+        if budget_limit_enabled and budget_limit is not None:
+            request_limit = max(0, int(budget_limit))
 
         tool_slug = "Field"
         # Get the appropriate API key
@@ -525,7 +551,7 @@ class Field(object):
             kwargs["deployment_name"] = deployment
 
         try:
-            add_ai_response_to_feature_layer(
+            result = add_ai_response_to_feature_layer(
                 api_key,
                 source,
                 in_layer,
@@ -534,11 +560,37 @@ class Field(object):
                 prompt,
                 sql,
                 enforce_request_limit=budget_limit_enabled,
-                max_requests=int(budget_limit) if budget_limit is not None else None,
+                max_requests=request_limit,
                 **kwargs
             )
 
             arcpy.AddMessage(f"{out_layer} created with AI-generated field {field_name}.")
+
+            if request_limit is not None:
+                processed_features = request_limit
+                limit_applied = False
+                total_features_observed = feature_count if feature_count >= 0 else None
+
+                if isinstance(result, dict):
+                    processed_features = result.get("processed_features", request_limit)
+                    limit_applied = result.get("limit_applied", False)
+                    if total_features_observed is None:
+                        total_features_observed = result.get("total_features")
+
+                if not limit_applied and total_features_observed is not None:
+                    limit_applied = total_features_observed > processed_features
+
+                if limit_applied:
+                    if total_features_observed is not None:
+                        arcpy.AddWarning(
+                            f"Budget conscious mode processed {processed_features} of "
+                            f"{total_features_observed} features (max {request_limit} API calls)."
+                        )
+                    else:
+                        arcpy.AddWarning(
+                            f"Budget conscious mode reached the {request_limit} request limit; "
+                            "remaining features were left blank."
+                        )
         except Exception as e:
             arcpy.AddError(f"Failed to add AI-generated field: {str(e)}")
             add_tool_doc_link(tool_slug)
@@ -753,12 +805,20 @@ class InterpretMap(object):
             return
 
         screenshot_info = context.get("screenshot") if context else None
-        vision_supported = source in ("OpenAI", "Azure OpenAI", "OpenRouter")
-        use_screenshot = bool(include_screenshot) and bool(screenshot_info) and vision_supported
-        if bool(include_screenshot) and not screenshot_info:
-            arcpy.AddWarning("Map screenshot could not be captured; proceeding without an image.")
-        if bool(include_screenshot) and not vision_supported:
-            arcpy.AddWarning("Selected provider does not support images; sending context without the screenshot.")
+        provider_supports_vision = source in ("OpenAI", "Azure OpenAI", "OpenRouter")
+        model_allows_vision = model_supports_images(source, model) if provider_supports_vision else False
+        model_label = model or "current model"
+        use_screenshot = bool(include_screenshot) and bool(screenshot_info) and provider_supports_vision and model_allows_vision
+
+        if bool(include_screenshot):
+            if not screenshot_info:
+                arcpy.AddWarning("Map screenshot could not be captured; proceeding without an image.")
+            elif not provider_supports_vision:
+                arcpy.AddWarning("Selected provider does not support images; sending context without the screenshot.")
+            elif not model_allows_vision:
+                arcpy.AddWarning(
+                    f"The selected model '{model_label}' does not appear to accept image input; sending context without the screenshot."
+                )
 
         textual_context = dict(context)
         textual_context.pop("screenshot", None)
@@ -1144,8 +1204,9 @@ class ConvertTextToNumeric(object):
                 if budget_enabled.value:
                     allowed = budget_limit.value
                     if allowed is not None and feature_count > int(allowed):
-                        budget_limit.setErrorMessage(
-                            f"Budget conscious mode limits requests to {allowed}, but {feature_count} features are selected."
+                        budget_limit.setWarningMessage(
+                            f"Budget conscious mode will process only {allowed} of "
+                            f"{feature_count} selected features."
                         )
         return
 
@@ -1160,13 +1221,9 @@ class ConvertTextToNumeric(object):
         budget_limit = parameters[7].value
 
         feature_count = get_feature_count_value(in_layer)
-        if budget_limit_enabled and budget_limit is not None and feature_count > int(budget_limit):
-            arcpy.AddError(
-                "Budget conscious mode is enabled. "
-                f"The tool would send {feature_count} requests which exceeds the limit of {budget_limit}. "
-                "Increase the limit or disable budget conscious mode to continue."
-            )
-            return
+        request_limit = None
+        if budget_limit_enabled and budget_limit is not None:
+            request_limit = max(0, int(budget_limit))
 
         tool_slug = "ConvertTextToNumeric"
         # Get the appropriate API key
@@ -1186,8 +1243,12 @@ class ConvertTextToNumeric(object):
         try:
             # Get the field values
             field_values = []
+            limit_applied = False
             with arcpy.da.SearchCursor(in_layer, [field]) as cursor:
                 for row in cursor:
+                    if request_limit is not None and len(field_values) >= request_limit:
+                        limit_applied = True
+                        break
                     field_values.append(row[0])
 
             kwargs = {}
@@ -1205,10 +1266,25 @@ class ConvertTextToNumeric(object):
             arcpy.AddField_management(in_layer, field_name_new, "DOUBLE")
 
             # Update the new field with the converted values
+            processed_features = len(converted_values)
             with arcpy.da.UpdateCursor(in_layer, [field, field_name_new]) as cursor:
                 for i, row in enumerate(cursor):
+                    if i >= processed_features:
+                        break
                     row[1] = converted_values[i]
                     cursor.updateRow(row)
+
+            if request_limit is not None:
+                if feature_count >= 0 and feature_count > request_limit:
+                    arcpy.AddWarning(
+                        f"Budget conscious mode converted {processed_features} of "
+                        f"{feature_count} features (max {request_limit} API calls)."
+                    )
+                elif feature_count < 0 and limit_applied:
+                    arcpy.AddWarning(
+                        f"Budget conscious mode stopped after {processed_features} features "
+                        "due to the max API call limit."
+                    )
         except Exception as e:
             arcpy.AddError(f"Error converting text to numeric values: {str(e)}")
             add_tool_doc_link(tool_slug)

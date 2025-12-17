@@ -6,7 +6,13 @@ import json
 import os
 import tempfile
 import re
-from typing import Dict, List, Union, Optional, Any
+from typing import Dict, List, Union, Optional, Any, Tuple
+
+
+try:
+    ArcGISMapType = arcpy.mp.Map  # type: ignore[attr-defined]
+except AttributeError:
+    ArcGISMapType = Any
 
 from .core.api_clients import get_client, GeoJSONUtils, parse_numeric_value, get_env_var
 
@@ -203,7 +209,7 @@ class FeatureLayerUtils:
 
     @staticmethod
     def capture_visible_layer_context(
-        active_map: arcpy.mp.Map,
+        active_map: ArcGISMapType,
         view_extent: Optional[arcpy.Extent],
         max_features_per_layer: int = 50,
     ) -> List[Dict[str, Any]]:
@@ -538,21 +544,65 @@ def capture_map_view_screenshot(
     view: Any, width: int = 1280, height: int = 720, resolution: int = 150
 ) -> Optional[Dict[str, Any]]:
     """Capture the active map view as a PNG and return metadata plus base64 content."""
-    if not view or not hasattr(view, "exportToPNG"):
+    if view is None:
+        arcpy.AddWarning("No active view available; skipping screenshot.")
+        return None
+
+    view_type = getattr(view, "type", "")
+    if isinstance(view_type, str) and view_type:
+        view_type_lower = view_type.lower()
+    else:
+        view_type_lower = ""
+
+    if view_type_lower and "map" not in view_type_lower and not hasattr(view, "camera"):
+        arcpy.AddWarning(f"The active view ({view_type}) is not a map view; skipping screenshot.")
+        return None
+
+    def _png_dimensions(path: str) -> Tuple[Optional[int], Optional[int]]:
+        """Read PNG header to determine output size without external deps."""
+        try:
+            with open(path, "rb") as png_file:
+                header = png_file.read(24)
+            if len(header) >= 24 and header.startswith(b"\x89PNG\r\n\x1a\n"):
+                width_bytes = header[16:20]
+                height_bytes = header[20:24]
+                return int.from_bytes(width_bytes, "big"), int.from_bytes(height_bytes, "big")
+        except Exception:
+            return None, None
+        return None, None
+
+    exporter = None
+    export_method = None
+
+    if hasattr(view, "exportToPNG"):
+        def exporter(path: str) -> None:
+            view.exportToPNG(path, width=width, height=height, resolution=resolution)
+        export_method = "exportToPNG"
+    elif hasattr(view, "exportView"):
+        # Map views expose exportView instead of exportToPNG.
+        def exporter(path: str) -> None:
+            try:
+                view.exportView(path, resolution=resolution)
+            except TypeError:
+                view.exportView(path)
+        export_method = "exportView"
+    else:
         arcpy.AddWarning("The active view does not support image export; skipping screenshot.")
         return None
 
     temp_dir = tempfile.mkdtemp()
     screenshot_path = os.path.join(temp_dir, "map_view.png")
     try:
-        view.exportToPNG(screenshot_path, width=width, height=height, resolution=resolution)
+        exporter(screenshot_path)
+        actual_width, actual_height = _png_dimensions(screenshot_path)
         with open(screenshot_path, "rb") as image_file:
             encoded = base64.b64encode(image_file.read()).decode("utf-8")
         return {
             "path": screenshot_path,
-            "width": width,
-            "height": height,
+            "width": actual_width if actual_width is not None else (width if export_method == "exportToPNG" else None),
+            "height": actual_height if actual_height is not None else (height if export_method == "exportToPNG" else None),
             "resolution": resolution,
+            "export_method": export_method,
             "base64": encoded,
         }
     except Exception as exc:
@@ -630,29 +680,9 @@ def add_ai_response_to_feature_layer(
     else:
         layer_to_use = in_layer
 
+    request_limit = None
     if enforce_request_limit and max_requests is not None:
-        temp_layer = None
-        try:
-            count_target = layer_to_use
-            if sql_query:
-                temp_name = f"ai_field_budget_{os.urandom(4).hex()}"
-                temp_layer = arcpy.management.MakeFeatureLayer(
-                    layer_to_use, temp_name, sql_query
-                ).getOutput(0)
-                count_target = temp_layer
-
-            feature_count = int(arcpy.management.GetCount(count_target).getOutput(0))
-            if feature_count > max_requests:
-                raise ValueError(
-                    f"Budget conscious mode is enabled. The operation would trigger {feature_count} requests, "
-                    f"which exceeds the current limit of {max_requests}."
-                )
-        finally:
-            if temp_layer:
-                try:
-                    arcpy.management.Delete(temp_layer)
-                except Exception:
-                    pass
+        request_limit = max(0, int(max_requests))
 
     # Add new field for AI responses
     existing_fields = [f.name for f in arcpy.ListFields(layer_to_use)]
@@ -667,26 +697,32 @@ def add_ai_response_to_feature_layer(
         field_name: str,
         prompt_template: str,
         sql_query: Optional[str] = None,
-    ) -> None:
+    ) -> Dict[str, Any]:
         """Generate AI responses for features and update the field."""
         desc = arcpy.Describe(feature_class)
         oid_field_name = desc.OIDFieldName
         fields = [field.name for field in arcpy.ListFields(feature_class)]
 
         # Store prompts and their corresponding OIDs
-        prompts_dict = {}
+        prompts_dict: Dict[int, str] = {}
+        limit_applied = False
+        total_features = 0
         with arcpy.da.SearchCursor(feature_class, fields[:-1], sql_query) as cursor:
             for row in cursor:
+                total_features += 1
+                if request_limit is not None and len(prompts_dict) >= request_limit:
+                    limit_applied = True
+                    continue
                 row_dict = {field: value for field, value in zip(fields[:-1], row)}
                 formatted_prompt = prompt_template.format(**row_dict)
                 oid = row_dict[oid_field_name]
                 prompts_dict[oid] = formatted_prompt
 
-        if prompts_dict:
-            sample_oid, sample_prompt = next(iter(prompts_dict.items()))
-            arcpy.AddMessage(f"{oid_field_name} {sample_oid}: {sample_prompt}")
-        else:
-            arcpy.AddMessage("prompts_dict is empty.")
+        # if prompts_dict:
+        #     sample_oid, sample_prompt = next(iter(prompts_dict.items()))
+        #     arcpy.AddMessage(f"{oid_field_name} {sample_oid}: {sample_prompt}")
+        # else:
+        #     arcpy.AddMessage("prompts_dict is empty.")
 
         # Get AI responses
         client = get_client(source, api_key, **kwargs)
@@ -705,15 +741,22 @@ def add_ai_response_to_feature_layer(
                 responses_dict[oid] = client.get_completion(messages)
 
         # Update feature class with responses
-        with arcpy.da.UpdateCursor(
-            feature_class, [oid_field_name, field_name]
-        ) as cursor:
+        with arcpy.da.UpdateCursor(feature_class, [oid_field_name, field_name]) as cursor:
             for row in cursor:
                 oid = row[0]
                 if oid in responses_dict:
                     row[1] = responses_dict[oid]
-                    cursor.updateRow(row)
+                else:
+                    row[1] = None
+                cursor.updateRow(row)
 
-    generate_ai_responses_for_feature_class(
+        processed = len(responses_dict)
+        return {
+            "processed_features": processed,
+            "limit_applied": bool(request_limit is not None and limit_applied),
+            "total_features": total_features,
+        }
+
+    return generate_ai_responses_for_feature_class(
         source, layer_to_use, field_name, prompt_template, sql_query
     )
