@@ -4,194 +4,106 @@
 <meta charset="utf-8">
 <title>ArcGIS Pro AI Toolbox</title>
 <link rel="icon" href="favicon.ico" type="image/x-icon">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
 <link rel="stylesheet" href="style.css">
-<script src="navigation.js"></script>
 </head>
-<body class="home">
-<canvas id="hero-splash" aria-hidden="true"></canvas>
-<!--<header>
-  <img src="logo_transparent.png" alt="logo">
-  <h1>Your GIS, now AI-supercharged</h1>
-</header>-->
-
-<div class="hero">
-  <div class="hero-content">
-    <p class="eyebrow">ArcGIS Pro AI Toolbox</p>
+<body data-theme="dark">
+<canvas id="home-splash" aria-hidden="true"></canvas>
+<nav class="container">
+  <ul>
+    <li><strong><code>ArcGIS Pro AI Toolbox</code></strong></li>
+  </ul>
+  <ul>
+    <li><a href="https://github.com/danmaps/arcgispro_ai" class="secondary">View Source</a></li> 
+  </ul>
+</nav>
+<main class="container">
+  <section>
     <h1>Build expressive, context-aware AI workflows inside ArcGIS Pro.</h1>
-    <h2>Download the lightweight Python toolbox and start blending map context, data, and intent with AI&mdash;no installs, no friction.</h2>
-    <a href="https://github.com/danmaps/arcgispro_ai/releases/latest/download/arcgispro_ai.pyt" class="cta" download>Download .pyt Toolbox</a>
-    <details class="info-card hero-faq">
-      <summary>FAQs</summary>
-      <div class="faq-item">
-        <h4>How does it handle my data?</h4>
-        <p>The toolbox is open source, free to use, and runs locally inside ArcGIS Pro. Only the context you choose for a tool is sent to the model endpoint you configure, and you can inspect or modify every line of code if you want to tighten things further.</p>
-      </div>
-      <div class="faq-item">
-        <h4>How do I get an OpenRouter API key?</h4>
-        <ol>
-          <li>Create an OpenRouter account at <a href="https://openrouter.ai" target="_blank">openrouter.ai</a></li>
-          <li>Head to <a href="https://openrouter.ai/settings/keys" target="_blank"><strong>Settings &gt; API Keys</strong></a></li>
-          <li>Click <strong>Create Key</strong>, give it a descriptive name (like "ArcGIS Pro AI"), and copy the secret value</li>
-          <li>Use <code>setx</code> to store the API key on your machine:<br>
-            <code>setx OPENROUTER_API_KEY "your-openrouter-key"</code>
-          </li>
-          <li>(Optional) Add credit on the <a href="https://openrouter.ai/settings/billing" target="_blank">Billing</a> page or attach a card so requests can run without limits</li>
-        </ol>
-        <h5>Checking usage &amp; cost</h5>
-        <ul>
-          <li>Review recent calls and spending on the <a href="https://openrouter.ai/activity" target="_blank">OpenRouter Activity</a> page.</li>
-          <li>Mini models on OpenRouter are inexpensive. Typical runs cost under $0.01.</li>
-        </ul>
-      </div>
-      <div class="faq-item">
-        <h4>Why does this use OpenRouter?</h4>
-        <p>OpenRouter gives one transparent API for many language models, so the toolbox can stay model-agnostic.</p>
-        <ul>
-          <li>Pick models based on cost, speed, or quality without rewriting tools.</li>
-          <li>Switch providers without changing code or workflows.</li>
-          <li>Avoid lock-in by bringing whichever API key fits your project.</li>
-        </ul>
-        <p class="info-footnote">Prefer another provider? The code is open and designed to be adapted.</p>
-      </div>
-      <div class="faq-item">
-        <h4>Who made this?</h4>
-        <p>This toolbox was built by a GIS analyst who likes building things.</p>
-        <p>I’m a former Esri employee and long-time ArcGIS Pro user. I’ve worked on real GIS teams, maintained production workflows, and felt the friction when powerful tools become rigid. Lately, I’ve been exploring how AI can act as a <em>thinking partner</em> inside GIS workflows, not a replacement for judgment.</p>
-        <p>This toolbox reflects that perspective: practical, inspectable, and built by someone who actually uses ArcGIS Pro every day.</p>
-      </div>
-      <div class="faq-item">
-        <h4>Why isn’t this a product?</h4>
-        <p>Because open source is better for this stage.</p>
-        <p>Keeping this open source lets anyone use it, inspect it, and adapt it. It also lets me build honestly, without optimizing for pricing tiers or feature checklists. If it grows into something people want to support later, great. If it stays a lightweight tool that quietly improves workflows, that’s great too.</p>
-        <p>For now, the goal is simple: let it become what it should be.</p>
-      </div>
-      <div class="faq-item">
-        <h4>Is AI actually right for GIS work?</h4>
-        <p>It can be, if you use it thoughtfully.</p>
-        <p>AI can hallucinate and get things wrong. That’s real. But GIS work has always required skepticism, verification, and judgment. This toolbox is designed for analysts who already work that way.</p>
-        <p>Used responsibly, AI can reduce friction, summarize complex context, surface ideas worth investigating, and act as a second set of eyes, not an authority. This is about supporting human-led analysis, not automating GIS.</p>
-      </div>
-      <div class="faq-item">
-        <h4>Is AI going to take my GIS job?</h4>
-        <p>No. It changes the work, not the need for judgment.</p>
-        <p>AI is good at generating text and suggestions. It is not good at understanding context, responsibility, or real-world consequences. GIS work lives in the real world, where decisions matter.</p>
-        <p>What will change is speed. Analysts who benefit most from AI already understand their data, know what questions matter, can spot bad answers, and take responsibility for results. This toolbox assumes GIS analysts are thinking professionals, not button-pushers.</p>
-        <p>If a job can be fully replaced by a prompt, it probably wasn’t really GIS work to begin with.</p>
-      </div>
+    <p>Download the lightweight Python toolbox and start blending map context, data, and intent with AI&mdash;no installs, no friction.</p>
+    <p>
+      <a href="https://github.com/danmaps/arcgispro_ai/releases/latest/download/arcgispro_ai.pyt" role="button">Download .pyt</a>
+      <a href="https://github.com/danmaps/arcgispro_ai" class="secondary" role="button">View on GitHub</a>
+    </p>
+    <p>Open source, free to use, and runs locally inside ArcGIS Pro. You bring your own API key so your data only goes where you send it.</p>
+  </section>
+
+  <section>
+    <h2>Tools</h2>
+    <div class="grid-cards">
+      <article>
+        <h3><a href="tools/FeatureLayer.html">Create AI Feature Layer</a></h3>
+        <p>Describe a layer and let the toolbox generate synthetic features for testing, demos, or brainstorming.</p>
+        <p><small>Model-agnostic&mdash;bring whichever endpoint fits your costs or speed.</small></p>
+      </article>
+      <article>
+        <h3><a href="tools/Field.html">Add AI-Generated Field</a></h3>
+        <p>Populate a new attribute column with AI text that respects the context of your map and layers.</p>
+        <p><small>It feels like &quot;calculate field&quot;, but with a model doing the drafting.</small></p>
+      </article>
+      <article>
+        <h3><a href="tools/GetMapInfo.html">Get Map Info</a></h3>
+        <p>Export the items, layers, and structure of your map to JSON so AI runs can see what you are working on.</p>
+        <p><small>Great for capturing context before you leave ArcGIS Pro.</small></p>
+      </article>
+      <article>
+        <h3><a href="tools/InterpretMap.html">Interpret Map</a></h3>
+        <p>Capture a screenshot and send it to a multimodal model for a quick written overview.</p>
+        <p><small>Useful when you need a second set of eyes on the cartography.</small></p>
+      </article>
+      <article>
+        <h3><a href="tools/Python.html">Generate Python Code</a></h3>
+        <p>Ask for arcpy snippets tailored to your current map and layer selection.</p>
+        <p><small>Helpful for automating repetitive steps or drafting new workflows.</small></p>
+      </article>
+      <article>
+        <h3><a href="tools/ConvertTextToNumeric.html">Convert Text to Numeric</a></h3>
+        <p>Turn messy AI-generated strings into numeric fields you can symbolize or analyze.</p>
+        <p><small>&quot;Seventy five&quot; &rarr; 75, without manual cleanup.</small></p>
+      </article>
+      <article>
+        <h3><a href="tools/GenerateTool.html">Generate Tool</a></h3>
+        <p>Transform prompts or scripts into a packaged .pyt tool with parameters and docs.</p>
+        <p><small>Perfect for sharing repeatable workflows with your team.</small></p>
+      </article>
+    </div>
+  </section>
+
+  <section>
+    <h2>FAQ</h2>
+    <details>
+      <summary>Who made this?</summary>
+      <p>This toolbox was built by a GIS analyst who likes building things. I'm a former Esri employee and long-time ArcGIS Pro user, so the focus is on practical tools that respect how GIS teams really work.</p>
     </details>
-  </div>
-</div>
+    <details>
+      <summary>Why isn't this a product?</summary>
+      <p>Because open source is better for this stage. Anyone can inspect, adapt, or deploy it without waiting for pricing tiers or approvals.</p>
+    </details>
+    <details>
+      <summary>Is AI actually right for GIS work?</summary>
+      <p>It can be, if you use it thoughtfully. GIS work already requires verification and judgment&mdash;AI just drops friction and drafts ideas faster.</p>
+    </details>
+    <details>
+      <summary>Is AI going to take my GIS job?</summary>
+      <p>No. AI changes the pace, not the need for critical thinking. This toolbox assumes analysts are thinking professionals, not button-pushers.</p>
+    </details>
+  </section>
 
-<section id="features">
-  <h3>The Tools</h3>
-  <div class="tool-grid">
-    <article class="tool-card" data-href="tools/FeatureLayer.html" data-title="Create AI Feature Layer" tabindex="0" role="link" aria-label="Open documentation for Create AI Feature Layer">
-      <h4>Create AI Feature Layer</h4>
-      <p class="tool-card__lead">Generate a new feature layer based on your prompt.</p>
-      <div class="tool-card__panel">
-        <span class="tool-card__icon">
-          <i class="fa-solid fa-map"></i>
-          <i class="fa-solid fa-wand-magic-sparkles"></i>
-        </span>
-        <p class="tool-card__meta">It's hit and miss, but also a ton of fun. <a class="external-link" href="https://danny-typeanythingmap.web.val.run/" target="_blank" rel="noopener">Live web based demo</a></p>
-      </div>
-    </article>
-    <article class="tool-card" data-href="tools/Field.html" data-title="Add AI-Generated Field" tabindex="0" role="link" aria-label="Open documentation for Add AI-Generated Field">
-      <h4>Add AI-Generated Field</h4>
-      <p class="tool-card__lead">Add a new attribute field with text generated by AI.</p>
-      <div class="tool-card__panel">
-        <span class="tool-card__icon">
-          <i class="fa-solid fa-table-columns"></i>
-        </span>
-        <p class="tool-card__meta">It's the AI version of "calculate field".</p>
-      </div>
-    </article>
-    <article class="tool-card" data-href="tools/GetMapInfo.html" data-title="Get Map Info" tabindex="0" role="link" aria-label="Open documentation for Get Map Info">
-      <h4>Get Map Info</h4>
-      <p class="tool-card__lead">Export map metadata to JSON for use in AI workflows.</p>
-      <div class="tool-card__panel">
-        <span class="tool-card__icon">
-          <i class="fa-solid fa-circle-info"></i>
-        </span>
-        <p class="tool-card__meta">This one is a utility for taking your context on the go. No more reminding ChatGPT what your layers are like...</p>
-      </div>
-    </article>
-    <article class="tool-card" data-href="tools/InterpretMap.html" data-title="Interpret Map" tabindex="0" role="link" aria-label="Open documentation for Interpret Map">
-      <h4>Interpret Map</h4>
-      <p class="tool-card__lead">Generate a text overview of your map view using your selected AI model.</p>
-      <div class="tool-card__panel">
-        <span class="tool-card__icon">
-          <i class="fa-solid fa-magnifying-glass"></i>
-        </span>
-        <p class="tool-card__meta">Sends a screenshot and is visually interpreted by multimodal models.</p>
-      </div>
-    </article>
-    <article class="tool-card" data-href="tools/Python.html" data-title="Generate Python Code" tabindex="0" role="link" aria-label="Open documentation for Generate Python Code">
-      <h4>Generate Python Code</h4>
-      <p class="tool-card__lead">Create arcpy code snippets tailored to your map and task.</p>
-      <div class="tool-card__panel">
-        <span class="tool-card__icon">
-          <i class="fa-brands fa-python"></i>
-        </span>
-        <p class="tool-card__meta">Very powerful. My personal favorite. I've spent the most time testing this one.</p>
-      </div>
-    </article>
-    <article class="tool-card" data-href="tools/ConvertTextToNumeric.html" data-title="Convert Text to Numeric" tabindex="0" role="link" aria-label="Open documentation for Convert Text to Numeric">
-      <h4>Convert Text to Numeric</h4>
-      <p class="tool-card__lead">Clean, parsing of text fields into numeric values.</p>
-      <div class="tool-card__panel">
-        <span class="tool-card__icon">
-          <i class="fa-solid fa-arrow-down-a-z"></i>
-          <i class="fa-solid fa-arrow-right"></i>
-          <i class="fa-solid fa-arrow-down-1-9"></i>
-        </span>
-        <p class="tool-card__meta">Solves a common problem with AI-generated fields. Think "seventy five" &rarr; 75.</p>
-      </div>
-    </article>
-    <article class="tool-card" data-href="tools/GenerateTool.html" data-title="Generate Tool" tabindex="0" role="link" aria-label="Open documentation for Generate Tool">
-      <h4>Generate Tool</h4>
-      <p class="tool-card__lead">Transform Python code or prompts into complete toolbox (.pyt) files.</p>
-      <div class="tool-card__panel">
-        <span class="tool-card__icon">
-          <i class="fa-solid fa-screwdriver-wrench"></i>
-        </span>
-        <p class="tool-card__meta">The ultimate tool for creating tools! Turn your scripts into reusable ArcGIS toolbox tools with proper parameters and documentation.</p>
-      </div>
-    </article>
-  </div>
-</section>
+  <section>
+    <h2>Install</h2>
+    <ol>
+      <li>Download the latest <code>.pyt</code> file.</li>
+      <li>Add the toolbox to ArcGIS Pro like any other custom tool.</li>
+      <li>Store your OpenRouter API key so the toolbox can read it:
+        <pre><code>setx OPENROUTER_API_KEY "your-openrouter-key"</code></pre>
+      </li>
+    </ol>
+  </section>
 
-<section id="docs">
-  <p><a href="https://github.com/danmaps/arcgispro_ai">View source</a> </p>
-</section>
-
-<footer>
-  &copy; 2025 <a href="https://danmaps.github.io/" target="_blank" style="color:inherit;text-decoration:underline;">Danny McVey</a> &middot; Made with &hearts; in California
-</footer>
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-  document.querySelectorAll('.tool-card').forEach(function (card) {
-    var href = card.dataset.href;
-    if (!href) {
-      return;
-    }
-    card.addEventListener('click', function (event) {
-      if (event.target.closest('.external-link')) {
-        return;
-      }
-      window.location.href = href;
-    });
-    card.addEventListener('keydown', function (event) {
-      if (event.key === 'Enter' || event.key === ' ') {
-        event.preventDefault();
-        window.location.href = href;
-      }
-    });
-  });
-});
-</script>
-<script src="home-splash.js" defer></script>
+  <footer>
+    <small>Open source &bull; Free to use &bull; Bring your own API key</small>
+  </footer>
+</main>
+<script src="home-splash.js"></script>
 </body>
 </html>

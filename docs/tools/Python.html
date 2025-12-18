@@ -2,46 +2,56 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Generate Python Code â€“ ArcGIS Pro AI Toolbox</title>
+  <title>Generate Python Code | ArcGIS Pro AI Toolbox</title>
+  <link rel="icon" href="../favicon.ico" type="image/x-icon">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
   <link rel="stylesheet" href="../style.css">
-  <script src="../navigation.js"></script>
 </head>
-<body class="tool-doc">
-  <div class="content">
+<body>
+<main class="container">
+  <section>
+    <p><a href="../index.html">&larr; Back to homepage</a></p>
     <h1>Generate Python Code</h1>
-    <p>This tool generates Python code snippets based on your prompt and the context of your map. Use it to quickly create ArcPy scripts tailored to your current project.</p>
+    <p>Draft ArcPy snippets tailored to your active map by describing the task you want automated. Optionally include layer samples so the AI can see schemas and representative data.</p>
+  </section>
+
+  <section>
     <h2>Usage</h2>
     <ol>
-      <li>Open ArcGIS Pro and add the <code>.pyt</code> toolbox if you haven't already.</li>
-      <li>Open the <strong>Generate Python Code</strong> tool.</li>
-      <li>Fill in the parameters as described below.</li>
-      <li>Click <strong>Run</strong>. The generated Python code will be displayed in the tool's output.</li>
+      <li>Add the toolbox to ArcGIS Pro.</li>
+      <li>Open <strong>Generate Python Code</strong>.</li>
+      <li>Pick a provider/model, set context layers, and describe the script you need.</li>
+      <li>Run the tool and copy the generated code from the messages pane.</li>
     </ol>
+  </section>
+
+  <section>
     <h2>Parameters</h2>
     <table>
       <tr><th>Name</th><th>Type</th><th>Required</th><th>Description</th></tr>
-      <tr><td>Source</td><td>String (Choice)</td><td>Yes</td><td class="param-desc">AI provider to use. Default: <strong>OpenRouter</strong>. Options: OpenRouter, OpenAI, Azure OpenAI, Claude, DeepSeek, Local LLM.</td></tr>
-      <tr><td>Model</td><td>String</td><td>No</td><td class="param-desc">The AI model to use. Choices depend on the selected source.</td></tr>
-      <tr><td>Endpoint</td><td>String</td><td>No</td><td class="param-desc">Custom endpoint for Azure or local models (if applicable).</td></tr>
-      <tr><td>Deployment Name</td><td>String</td><td>No</td><td class="param-desc">Deployment name for Azure OpenAI (if applicable).</td></tr>
-      <tr><td>Layers for Context</td><td>Feature Layer (MultiValue)</td><td>No</td><td class="param-desc">Optional layers to provide specific context for the AI when generating code. This includes the schema and a data sample (first 5 records).</td></tr>
-      <tr><td>Prompt</td><td>String</td><td>Yes</td><td class="param-desc">Describe the Python code you want to generate. Be specific for better results.</td></tr>
-      <tr><td>Context</td><td>String</td><td>No</td><td class="param-desc">Map context which will be passed to the AI. This is dynamically generated using the current map and selected layers from the <code>Layers for Context</code> parameter. For a detailed look at how this information is gathered see the <a href="GetMapInfo.html">Get Map Info</a> tool.</td></tr>
+      <tr><td>Source</td><td>String (Choice)</td><td>Yes</td><td class="param-desc">AI provider (OpenRouter, OpenAI, Azure OpenAI, Claude, DeepSeek, Local LLM).</td></tr>
+      <tr><td>Model</td><td>String</td><td>No</td><td class="param-desc">Specific model to use.</td></tr>
+      <tr><td>Endpoint</td><td>String</td><td>No</td><td class="param-desc">Custom endpoint for Azure or local deployments.</td></tr>
+      <tr><td>Deployment Name</td><td>String</td><td>No</td><td class="param-desc">Azure OpenAI deployment ID.</td></tr>
+      <tr><td>Layers for Context</td><td>Feature Layer (MultiValue)</td><td>No</td><td class="param-desc">Optional layers to share schema and the first five records with the AI.</td></tr>
+      <tr><td>Prompt</td><td>String</td><td>Yes</td><td class="param-desc">Describe the script you need. Specific inputs and outputs improve quality.</td></tr>
+      <tr><td>Context</td><td>String</td><td>No</td><td class="param-desc">Automatically generated map summary, similar to the <a href="GetMapInfo.html">Get Map Info</a> output.</td></tr>
     </table>
+  </section>
+
+  <section>
     <h2>Tips</h2>
     <ul>
-      <li>Provide detailed prompts, e.g., <code>"Generate a script to buffer all layers in the map by 500 meters."</code></li>
-      <li>Use the <strong>Layers for Context</strong> parameter to include specific layers in the generated code.</li>
-      <li>Experiment with different models for varied results.</li>
+      <li>State the desired tool flow or geoprocessing chain explicitly.</li>
+      <li>Provide sample layer names/fields so the code references real objects.</li>
+      <li>Try a few models—some are better at structured scripting than others.</li>
     </ul>
-    
-    <h2>Data Privacy Caution</h2>
-    <p class="caution">
-      <strong>Important:</strong> This tool sends data (which is visible in the "Context" parameter) to the AI provider you specify. 
-      Be mindful of your organization's data policies before sharing potentially sensitive information. 
-      Avoid including confidential, regulated, or personally identifiable information in your context layers 
-      if using non-local model options that transmit data across the web.
-    </p>
-  </div>
+  </section>
+
+  <section>
+    <h2>Data privacy</h2>
+    <p><strong>Important:</strong> Any layers you include for context (schema plus sample rows) get sent to the provider you choose. Make sure this is allowed for your dataset, or stick to local models.</p>
+  </section>
+</main>
 </body>
 </html>

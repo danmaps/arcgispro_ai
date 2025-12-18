@@ -2,40 +2,53 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Add AI-Generated Field – ArcGIS Pro AI Toolbox</title>
+  <title>Add AI-Generated Field | ArcGIS Pro AI Toolbox</title>
+  <link rel="icon" href="../favicon.ico" type="image/x-icon">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
   <link rel="stylesheet" href="../style.css">
-  <script src="../navigation.js"></script>
 </head>
-<body class="tool-doc">
-  <div class="content">
+<body>
+<main class="container">
+  <section>
+    <p><a href="../index.html">&larr; Back to homepage</a></p>
     <h1>Add AI-Generated Field</h1>
-    <p>This tool adds a new attribute field to a feature layer, using AI to generate text for each feature based on your prompt. Prompts can reference existing attributes and optionally filter features using SQL.</p>
+    <p>Add a new attribute field to a feature layer by prompting AI. Prompts can reference existing attributes and you can optionally filter features with SQL.</p>
+  </section>
+
+  <section>
     <h2>Usage</h2>
     <ol>
-      <li>Open ArcGIS Pro and add the <code>.pyt</code> toolbox if you haven't already.</li>
-      <li>Open the <strong>Add AI-Generated Field</strong> tool.</li>
-      <li>Fill in the parameters as described below.</li>
-      <li>Click <strong>Run</strong>. The output layer will have a new field with AI-generated values.</li>
+      <li>Add the <code>.pyt</code> toolbox to ArcGIS Pro.</li>
+      <li>Open <strong>Add AI-Generated Field</strong>.</li>
+      <li>Complete the parameters below.</li>
+      <li>Run the tool to append a populated field to your layer.</li>
     </ol>
+  </section>
+
+  <section>
     <h2>Parameters</h2>
     <table>
       <tr><th>Name</th><th>Type</th><th>Required</th><th>Description</th></tr>
-      <tr><td>Source</td><td>String (Choice)</td><td>Yes</td><td class="param-desc">AI provider to use. Default: <strong>OpenRouter</strong>. Options: OpenRouter, OpenAI, Azure OpenAI, Claude, DeepSeek, Local LLM, Wolfram Alpha.</td></tr>
-      <tr><td>Model</td><td>String</td><td>No</td><td class="param-desc">The AI model to use. Choices depend on the selected source.</td></tr>
-      <tr><td>Endpoint</td><td>String</td><td>No</td><td class="param-desc">Custom endpoint for Azure or local models (if applicable).</td></tr>
-      <tr><td>Deployment Name</td><td>String</td><td>No</td><td class="param-desc">Deployment name for Azure OpenAI (if applicable).</td></tr>
-      <tr><td>Input Layer</td><td>Feature Layer</td><td>Yes</td><td class="param-desc">The input feature layer to add the field to.</td></tr>
-      <tr><td>Output Layer</td><td>Feature Layer</td><td>Yes</td><td class="param-desc">The output feature layer with the new field.</td></tr>
-      <tr><td>Field Name</td><td>String</td><td>Yes</td><td class="param-desc">Name of the new field to add.</td></tr>
-      <tr><td>Prompt</td><td>String</td><td>Yes</td><td class="param-desc">Prompt for the AI to generate field values. You can reference attributes using curly braces, e.g. <code>{NAME}</code>.</td></tr>
-      <tr><td>SQL Query</td><td>String</td><td>No</td><td class="param-desc">Optional SQL query to filter which features are updated.</td></tr>
+      <tr><td>Source</td><td>String (Choice)</td><td>Yes</td><td class="param-desc">AI provider. Default: <strong>OpenRouter</strong>. Options include OpenAI, Azure OpenAI, Claude, DeepSeek, Local LLM, Wolfram Alpha.</td></tr>
+      <tr><td>Model</td><td>String</td><td>No</td><td class="param-desc">Specific model for the provider.</td></tr>
+      <tr><td>Endpoint</td><td>String</td><td>No</td><td class="param-desc">Custom endpoint for Azure or local hosting.</td></tr>
+      <tr><td>Deployment Name</td><td>String</td><td>No</td><td class="param-desc">Azure OpenAI deployment.</td></tr>
+      <tr><td>Input Layer</td><td>Feature Layer</td><td>Yes</td><td class="param-desc">Layer to update.</td></tr>
+      <tr><td>Output Layer</td><td>Feature Layer</td><td>Yes</td><td class="param-desc">Resulting layer with the new field.</td></tr>
+      <tr><td>Field Name</td><td>String</td><td>Yes</td><td class="param-desc">Name of the field to add.</td></tr>
+      <tr><td>Prompt</td><td>String</td><td>Yes</td><td class="param-desc">Instructions for the AI. Reference attributes with <code>{FIELDNAME}</code>.</td></tr>
+      <tr><td>SQL Query</td><td>String</td><td>No</td><td class="param-desc">Filter which features receive values.</td></tr>
     </table>
+  </section>
+
+  <section>
     <h2>Tips</h2>
     <ul>
-      <li>Reference existing fields in your prompt, e.g. <code>"Summarize the land use for {NAME}."</code></li>
-      <li>Use the <strong>SQL Query</strong> to limit which features get new values.</li>
-      <li>Try different models for different styles or languages.</li>
+      <li>Reference multiple fields for richer responses, e.g. <code>Summarize ordinance {ORD_ID} for {NAME}.</code></li>
+      <li>Use SQL to target unfinished records.</li>
+      <li>Experiment with models to get different tones or languages.</li>
     </ul>
-  </div>
+  </section>
+</main>
 </body>
 </html>

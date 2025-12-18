@@ -2,37 +2,46 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Get Map Info â€“ ArcGIS Pro AI Toolbox</title>
+  <title>Get Map Info | ArcGIS Pro AI Toolbox</title>
+  <link rel="icon" href="../favicon.ico" type="image/x-icon">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
   <link rel="stylesheet" href="../style.css">
-  <script src="../navigation.js"></script>
 </head>
-<body class="tool-doc">
-  <div class="content">
+<body>
+<main class="container">
+  <section>
+    <p><a href="../index.html">&larr; Back to homepage</a></p>
     <h1>Get Map Info</h1>
-    <p>This tool exports information about a map in your ArcGIS Pro project to a JSON file. Use it to capture map structure, layers, and other metadata for use in AI workflows or documentation.</p>
-    
-    <p>This tool does not use AI, instead it uses plain ol arcpy to make your map context actionable FOR ai tools. For example, try asking any LLM for an arcpy script to do an analysis, then try again after including the output of this tool as additional context... you'll likely see much better results.</p>
-    
-    <p>Fun fact, this is the same method used in the generate python code tool to send information about selected layers to the AI.</p>
-    
+    <p>Export the structure of a map—layers, sources, extent, and metadata—to JSON so you can hand accurate context to AI tools or document your project.</p>
+    <p>This tool uses arcpy only; no AI calls occur. The JSON it produces is the same information the Generate Python Code tool shares with models.</p>
+  </section>
+
+  <section>
     <h2>Usage</h2>
     <ol>
-      <li>Open ArcGIS Pro and add the <code>.pyt</code> toolbox if you haven't already.</li>
-      <li>Open the <strong>Get Map Info</strong> tool.</li>
-      <li>Fill in the parameters as described below.</li>
-      <li>Click <strong>Run</strong>. The tool will write map info to the specified JSON file.</li>
+      <li>Add the <code>.pyt</code> toolbox to ArcGIS Pro.</li>
+      <li>Open <strong>Get Map Info</strong>.</li>
+      <li>Provide the parameters below.</li>
+      <li>Run the tool to write a JSON file.</li>
     </ol>
+  </section>
+
+  <section>
     <h2>Parameters</h2>
     <table>
       <tr><th>Name</th><th>Type</th><th>Required</th><th>Description</th></tr>
-      <tr><td>Map</td><td>Map</td><td>No</td><td class="param-desc">The map to get info from. If not specified, uses the current map.</td></tr>
-      <tr><td>Output JSON Path</td><td>String (Path)</td><td>Yes</td><td class="param-desc">Path to the output JSON file where map info will be saved.</td></tr>
+      <tr><td>Map</td><td>Map</td><td>No</td><td class="param-desc">Map to capture. Defaults to the active map.</td></tr>
+      <tr><td>Output JSON Path</td><td>String (Path)</td><td>Yes</td><td class="param-desc">Location for the JSON summary.</td></tr>
     </table>
+  </section>
+
+  <section>
     <h2>Tips</h2>
     <ul>
-      <li>If you leave the <strong>Map</strong> parameter blank, the tool will use the active map in your project.</li>
-      <li>The output JSON can be used as context for AI tools or for documentation.</li>
+      <li>Leave <strong>Map</strong> blank to summarize whatever view you currently have open.</li>
+      <li>Paste JSON snippets into AI prompts so the model “knows” your layers before writing a script.</li>
     </ul>
-  </div>
+  </section>
+</main>
 </body>
 </html>

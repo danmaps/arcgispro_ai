@@ -2,51 +2,61 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Interpret Map â€“ ArcGIS Pro AI Toolbox</title>
+  <title>Interpret Map | ArcGIS Pro AI Toolbox</title>
+  <link rel="icon" href="../favicon.ico" type="image/x-icon">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
   <link rel="stylesheet" href="../style.css">
-  <script src="../navigation.js"></script>
 </head>
-<body class="tool-doc">
-  <div class="content">
+<body>
+<main class="container">
+  <section>
+    <p><a href="../index.html">&larr; Back to homepage</a></p>
     <h1>Interpret Map</h1>
-    <p>Interpret Map analyzes the active ArcGIS Pro map view using both a rendered screenshot and simplified spatial context from visible layers. The tool summarizes what the map communicates at the current scale, verifies visible patterns against data, and flags potential misalignment between symbology and data.</p>
+    <p>Send the current ArcGIS Pro view—screenshot plus simplified layer context—to a multimodal model for a quick written summary, checks against the data, and a suggested next step.</p>
+  </section>
 
+  <section>
     <h2>Usage</h2>
     <ol>
-      <li>Open ArcGIS Pro, navigate to the extent and scale you want interpreted, and ensure the layers you care about are visible.</li>
-      <li>Open the <strong>Interpret Map</strong> tool.</li>
-      <li>Keep <strong>Include Map Screenshot</strong> enabled to send the rendered view to the AI (recommended for providers that support images).</li>
-      <li>Optionally adjust <strong>Max Features Per Layer</strong> to control how many visible features (default 50) are summarized per layer.</li>
-      <li>Click <strong>Run</strong>. The interpretation is returned in the tool messages.</li>
+      <li>Navigate the map to the extent and scale you want interpreted.</li>
+      <li>Open <strong>Interpret Map</strong>.</li>
+      <li>Decide whether to include the screenshot (recommended for models with vision support) and adjust feature sampling if needed.</li>
+      <li>Run the tool and read the structured response in the messages pane.</li>
     </ol>
+  </section>
 
+  <section>
     <h2>Parameters</h2>
     <table>
       <tr><th>Name</th><th>Type</th><th>Required</th><th>Description</th></tr>
-      <tr><td>Source</td><td>String (Choice)</td><td>Yes</td><td class="param-desc">AI provider to use. Default: <strong>OpenRouter</strong>. Options: OpenRouter, OpenAI, Azure OpenAI, Claude, DeepSeek, Local LLM.</td></tr>
-      <tr><td>Model</td><td>String</td><td>No</td><td class="param-desc">AI model for the selected provider.</td></tr>
-      <tr><td>Endpoint</td><td>String</td><td>No</td><td class="param-desc">Custom endpoint URL for Azure or local models.</td></tr>
-      <tr><td>Deployment Name</td><td>String</td><td>No</td><td class="param-desc">Deployment name for Azure OpenAI.</td></tr>
-      <tr><td>Max Features Per Layer</td><td>Long</td><td>No</td><td class="param-desc">Maximum number of visible features per layer to include in the GeoJSON-like context (default: 50). Geometry is simplified to keep prompts small.</td></tr>
-      <tr><td>Include Map Screenshot</td><td>Boolean</td><td>No</td><td class="param-desc">Capture and send a PNG of the active map view to the AI (recommended for OpenRouter, OpenAI, and Azure OpenAI models that support images).</td></tr>
+      <tr><td>Source</td><td>String (Choice)</td><td>Yes</td><td class="param-desc">Provider (OpenRouter, OpenAI, Azure OpenAI, Claude, DeepSeek, Local LLM).</td></tr>
+      <tr><td>Model</td><td>String</td><td>No</td><td class="param-desc">Specific model for the provider.</td></tr>
+      <tr><td>Endpoint</td><td>String</td><td>No</td><td class="param-desc">Custom endpoint URL for Azure/local setups.</td></tr>
+      <tr><td>Deployment Name</td><td>String</td><td>No</td><td class="param-desc">Azure OpenAI deployment ID.</td></tr>
+      <tr><td>Max Features Per Layer</td><td>Long</td><td>No</td><td class="param-desc">Visible features per layer to summarize (default 50). Geometry is simplified.</td></tr>
+      <tr><td>Include Map Screenshot</td><td>Boolean</td><td>No</td><td class="param-desc">Attach a PNG of the active view.</td></tr>
     </table>
+  </section>
 
-    <h2>What gets sent to the AI</h2>
+  <section>
+    <h2>What gets sent</h2>
     <ul>
-      <li>A screenshot of the active view (if enabled).</li>
-      <li>Map metadata: name, spatial reference, visible layer count.</li>
-      <li>View metadata: scale and extent.</li>
-      <li>Visible feature layers: renderer type, geometry type, representative attributes, and up to the configured number of simplified features intersecting the view.</li>
+      <li>Optional screenshot of the map.</li>
+      <li>Map metadata (name, reference, visible layer count).</li>
+      <li>View metadata (scale, extent).</li>
+      <li>Visible layers with renderer info, attribute samples, and simplified features.</li>
     </ul>
+  </section>
 
+  <section>
     <h2>Output</h2>
-    <p>The response is structured into Interpretation, Verified Observations, Visual vs Data Notes, Confidence Notes, and One Suggested Next Step. Visual inferences are distinguished from data-backed findings.</p>
+    <p>The response includes interpretation, verified observations, “visual vs. data” notes, confidence commentary, and one suggested next step.</p>
+  </section>
 
-    <h2>Data Privacy Caution</h2>
-    <p class="caution">
-      <strong>Important:</strong> This tool sends map imagery and summarized vector context to the AI provider you select.
-      Confirm that sharing this content complies with your organization&rsquo;s policies before running the tool, especially when using cloud providers.
-    </p>
-  </div>
+  <section>
+    <h2>Data privacy</h2>
+    <p><strong>Important:</strong> This tool sends map imagery and summarized feature data to the provider you select. Confirm you are allowed to share that content before running it.</p>
+  </section>
+</main>
 </body>
 </html>

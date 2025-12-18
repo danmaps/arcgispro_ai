@@ -2,36 +2,48 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Convert Text to Numeric – ArcGIS Pro AI Toolbox</title>
+  <title>Convert Text to Numeric | ArcGIS Pro AI Toolbox</title>
+  <link rel="icon" href="../favicon.ico" type="image/x-icon">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
   <link rel="stylesheet" href="../style.css">
-  <script src="../navigation.js"></script>
 </head>
-<body class="tool-doc">
-  <div class="content">
+<body>
+<main class="container">
+  <section>
+    <p><a href="../index.html">&larr; Back to homepage</a></p>
     <h1>Convert Text to Numeric</h1>
-    <p>This tool converts text-based fields in a feature layer to numeric values using AI. It is useful for standardizing data or preparing it for analysis.</p>
+    <p>Translate text-based values ("Seventy five", "~120", "about eight") into clean numeric fields using AI so they can be symbolized or analyzed.</p>
+  </section>
+
+  <section>
     <h2>Usage</h2>
     <ol>
-      <li>Open ArcGIS Pro and add the <code>.pyt</code> toolbox if you haven't already.</li>
-      <li>Open the <strong>Convert Text to Numeric</strong> tool.</li>
-      <li>Fill in the parameters as described below.</li>
-      <li>Click <strong>Run</strong>. The tool will update the specified field with numeric values.</li>
+      <li>Add the toolbox to ArcGIS Pro.</li>
+      <li>Open <strong>Convert Text to Numeric</strong>.</li>
+      <li>Pick the provider/model, set the layer and field, then run the tool.</li>
     </ol>
+  </section>
+
+  <section>
     <h2>Parameters</h2>
     <table>
       <tr><th>Name</th><th>Type</th><th>Required</th><th>Description</th></tr>
-      <tr><td>Source</td><td>String (Choice)</td><td>Yes</td><td class="param-desc">AI provider to use. Default: <strong>OpenRouter</strong>. Options: OpenRouter, OpenAI, Azure OpenAI, Claude, DeepSeek, Local LLM.</td></tr>
-      <tr><td>Model</td><td>String</td><td>No</td><td class="param-desc">The AI model to use. Choices depend on the selected source.</td></tr>
-      <tr><td>Endpoint</td><td>String</td><td>No</td><td class="param-desc">Custom endpoint for Azure or local models (if applicable).</td></tr>
-      <tr><td>Deployment Name</td><td>String</td><td>No</td><td class="param-desc">Deployment name for Azure OpenAI (if applicable).</td></tr>
-      <tr><td>Input Layer</td><td>Feature Layer</td><td>Yes</td><td class="param-desc">The input feature layer containing the text field to convert.</td></tr>
-      <tr><td>Field</td><td>Field</td><td>Yes</td><td class="param-desc">The text field to convert to numeric values.</td></tr>
+      <tr><td>Source</td><td>String (Choice)</td><td>Yes</td><td class="param-desc">Provider such as OpenRouter, OpenAI, Azure OpenAI, Claude, DeepSeek, Local LLM.</td></tr>
+      <tr><td>Model</td><td>String</td><td>No</td><td class="param-desc">Specific model for the provider.</td></tr>
+      <tr><td>Endpoint</td><td>String</td><td>No</td><td class="param-desc">Custom endpoint (Azure/local).</td></tr>
+      <tr><td>Deployment Name</td><td>String</td><td>No</td><td class="param-desc">Azure OpenAI deployment ID.</td></tr>
+      <tr><td>Input Layer</td><td>Feature Layer</td><td>Yes</td><td class="param-desc">Layer containing the text field.</td></tr>
+      <tr><td>Field</td><td>Field</td><td>Yes</td><td class="param-desc">Field to convert to numeric.</td></tr>
     </table>
+  </section>
+
+  <section>
     <h2>Tips</h2>
     <ul>
-      <li>Ensure the text field contains values that can be meaningfully converted to numbers.</li>
-      <li>Use the <strong>Model</strong> parameter to experiment with different AI models for conversion.</li>
+      <li>Spot-check a subset of records before trusting the full conversion.</li>
+      <li>Use the same model you used to generate text so tone/format is familiar.</li>
     </ul>
-  </div>
+  </section>
+</main>
 </body>
 </html>
