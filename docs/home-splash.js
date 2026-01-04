@@ -2,6 +2,16 @@
   const canvas = document.getElementById("home-splash");
   if (!canvas) return;
 
+  const rootElement = document.body || document.documentElement;
+  const disableSplash =
+    canvas.hasAttribute("data-disabled") ||
+    (rootElement && rootElement.dataset.disableSplash === "true");
+
+  if (disableSplash) {
+    canvas.style.display = "none";
+    return;
+  }
+
   const vertexShaderSource = `
     attribute vec2 position;
     void main() {
