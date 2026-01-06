@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Generate Tool | ArcGIS Pro AI Toolbox</title>
+  <link rel="icon" href="../favicon.ico" type="image/x-icon">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<main class="container">
+  <section>
+    <p><a href="../index.html">&larr; Back to homepage</a></p>
+    <h1>Generate Tool</h1>
+    <p>Turn a Python script or natural language description into a fully parameterized ArcGIS Python toolbox (.pyt). The tool handles boilerplate, parameter inference, and packaging so you can focus on logic.</p>
+  </section>
+
+  <section>
+    <h2>Overview</h2>
+    <p>Generate Tool accepts either raw Python code or a descriptive prompt. The AI drafts the tool class, parameter definitions, and execute logic, then writes a ready-to-use .pyt file.</p>
+  </section>
+
+  <section>
+    <h2>Usage</h2>
+    <ol>
+      <li>Add the toolbox to ArcGIS Pro.</li>
+      <li>Open <strong>Generate Tool</strong>.</li>
+      <li>Choose whether you are supplying code or a natural language prompt.</li>
+      <li>Set toolbox name, tool name, and output folder.</li>
+      <li>Optionally enable advanced mode to provide explicit parameter JSON.</li>
+      <li>Run the tool. A .pyt file is created and ready to add to ArcGIS Pro.</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>Parameters</h2>
+    <table>
+      <tr><th>Name</th><th>Type</th><th>Required</th><th>Description</th></tr>
+      <tr><td>Source</td><td>String (Choice)</td><td>Yes</td><td class="param-desc">AI provider (OpenRouter, OpenAI, Azure OpenAI, Claude, DeepSeek, Local LLM).</td></tr>
+      <tr><td>Model</td><td>String</td><td>No</td><td class="param-desc">Specific model for the provider.</td></tr>
+      <tr><td>Endpoint</td><td>String</td><td>No</td><td class="param-desc">Custom endpoint for Azure or local deployments.</td></tr>
+      <tr><td>Deployment Name</td><td>String</td><td>No</td><td class="param-desc">Azure OpenAI deployment ID.</td></tr>
+      <tr><td>Input Type</td><td>String (Choice)</td><td>Yes</td><td class="param-desc">Use "Natural Language Prompt" or "Python Code".</td></tr>
+      <tr><td>Python Code</td><td>String (Multiline)</td><td>No</td><td class="param-desc">Paste existing code when Input Type = Python Code.</td></tr>
+      <tr><td>Natural Language Prompt</td><td>String</td><td>No</td><td class="param-desc">Describe the tool you want when Input Type = Prompt.</td></tr>
+      <tr><td>Toolbox Name</td><td>String</td><td>Yes</td><td class="param-desc">Name for the generated toolbox.</td></tr>
+      <tr><td>Tool Name</td><td>String</td><td>Yes</td><td class="param-desc">Class name for the generated tool.</td></tr>
+      <tr><td>Output Path</td><td>Folder</td><td>Yes</td><td class="param-desc">Directory where the .pyt file will be saved.</td></tr>
+      <tr><td>Advanced Mode</td><td>Boolean</td><td>No</td><td class="param-desc">Enable to supply custom parameter JSON.</td></tr>
+      <tr><td>Parameter Definition (JSON)</td><td>String (Multiline)</td><td>No</td><td class="param-desc">Only used with Advanced Mode.</td></tr>
+      <tr><td>Output Toolbox</td><td>File (Derived)</td><td>Auto</td><td class="param-desc">Path to the generated .pyt.</td></tr>
+    </table>
+  </section>
+
+  <section>
+    <h2>How it works</h2>
+    <ol>
+      <li><strong>Input processing:</strong> Prompts are converted to Python; existing code is used as-is.</li>
+      <li><strong>Parameter inference:</strong> The AI inspects the code to infer parameters and properties.</li>
+      <li><strong>Toolbox generation:</strong> A complete .pyt is written with the correct ArcGIS class structure.</li>
+      <li><strong>Validation:</strong> Syntax and structure are checked before writing the file.</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>Tips</h2>
+    <ul>
+      <li>Describe inputs, outputs, and edge cases explicitly.</li>
+      <li>Use descriptive toolbox/tool names for clarity.</li>
+      <li>Test the output .pyt before distributing it.</li>
+      <li>Iterate by refining your prompt or code if the first attempt needs adjustment.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Advanced parameter definition</h2>
+    <p>When Advanced Mode is enabled, provide JSON to control parameters. Example:</p>
+<pre><code>{
+  "parameters": [
+    {
+      "name": "input_layer",
+      "displayName": "Input Feature Layer",
+      "datatype": "GPFeatureLayer",
+      "parameterType": "Required",
+      "direction": "Input"
+    },
+    {
+      "name": "buffer_distance",
+      "displayName": "Buffer Distance",
+      "datatype": "GPLinearUnit",
+      "parameterType": "Required",
+      "direction": "Input"
+    },
+    {
+      "name": "output_layer",
+      "displayName": "Output Feature Layer",
+      "datatype": "GPFeatureLayer",
+      "parameterType": "Required",
+      "direction": "Output"
+    }
+  ]
+}</code></pre>
+  </section>
+
+  <section>
+    <h2>Example uses</h2>
+    <ul>
+      <li>Convert a standalone script into a reusable tool for your team.</li>
+      <li>Prototype specialized geoprocessing workflows quickly.</li>
+      <li>Package automation utilities with proper parameters.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Data privacy</h2>
+    <p><strong>Important:</strong> The code or prompt you provide is sent to the AI provider. Avoid sharing proprietary algorithms or sensitive data unless you are using a trusted, local model.</p>
+  </section>
+</main>
+</body>
+</html>

@@ -11,7 +11,14 @@ mock_arcpy = Mock()
 mock_arcpy.AddMessage = Mock()
 mock_arcpy.AddWarning = Mock()
 mock_arcpy.AddError = Mock()
-mock_arcpy.Extent = Mock()
+class MockExtent:
+    def __init__(self, xmin, ymin, xmax, ymax):
+        self.XMin = xmin
+        self.YMin = ymin
+        self.XMax = xmax
+        self.YMax = ymax
+
+mock_arcpy.Extent = MockExtent
 sys.modules['arcpy'] = mock_arcpy
 
 # Now we can import and run the tests

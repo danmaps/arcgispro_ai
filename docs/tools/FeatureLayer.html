@@ -2,37 +2,50 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Create AI Feature Layer – ArcGIS Pro AI Toolbox</title>
+  <title>Create AI Feature Layer | ArcGIS Pro AI Toolbox</title>
+  <link rel="icon" href="../favicon.ico" type="image/x-icon">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
   <link rel="stylesheet" href="../style.css">
-  <script src="../navigation.js"></script>
 </head>
 <body>
-  <div class="content">
+<main class="container">
+  <section>
+    <p><a href="../index.html">&larr; Back to homepage</a></p>
     <h1>Create AI Feature Layer</h1>
-    <p>This tool generates a new feature layer using an AI model based on your prompt. You can use it to create synthetic data, demo layers, or experiment with AI-driven spatial data creation.</p>
+    <p>This tool generates a new feature layer using an AI model based on your prompt. Use it to create synthetic data, demo layers, or experiment with AI-driven spatial data creation.</p>
+  </section>
+
+  <section>
     <h2>Usage</h2>
     <ol>
       <li>Open ArcGIS Pro and add the <code>.pyt</code> toolbox if you haven't already.</li>
       <li>Open the <strong>Create AI Feature Layer</strong> tool.</li>
       <li>Fill in the parameters as described below.</li>
-      <li>Click <strong>Run</strong>. The output layer will appear in your map.</li>
+      <li>Select <strong>Run</strong>. The output layer appears in your map.</li>
     </ol>
+  </section>
+
+  <section>
     <h2>Parameters</h2>
     <table>
       <tr><th>Name</th><th>Type</th><th>Required</th><th>Description</th></tr>
-      <tr><td>Source</td><td>String (Choice)</td><td>Yes</td><td class="param-desc">AI provider to use (OpenAI, Azure OpenAI, Claude, DeepSeek, Local LLM).</td></tr>
-      <tr><td>Model</td><td>String</td><td>No</td><td class="param-desc">The AI model to use. Choices depend on the selected source.</td></tr>
-      <tr><td>Endpoint</td><td>String</td><td>No</td><td class="param-desc">Custom endpoint for Azure or local models (if applicable).</td></tr>
-      <tr><td>Deployment Name</td><td>String</td><td>No</td><td class="param-desc">Deployment name for Azure OpenAI (if applicable).</td></tr>
-      <tr><td>Prompt</td><td>String</td><td>Yes</td><td class="param-desc">Describe what you want the feature layer to represent. Try anything you can think of!</td></tr>
-      <tr><td>Output Layer</td><td>Feature Layer (Derived)</td><td>Auto</td><td class="param-desc">The output feature layer created by the tool.</td></tr>
+      <tr><td>Source</td><td>String (Choice)</td><td>Yes</td><td class="param-desc">AI provider to use. Default: <strong>OpenRouter</strong>. Options: OpenRouter, OpenAI, Azure OpenAI, Claude, DeepSeek, Local LLM.</td></tr>
+      <tr><td>Model</td><td>String</td><td>No</td><td class="param-desc">AI model to use. Choices depend on the selected source.</td></tr>
+      <tr><td>Endpoint</td><td>String</td><td>No</td><td class="param-desc">Custom endpoint for Azure or local models.</td></tr>
+      <tr><td>Deployment Name</td><td>String</td><td>No</td><td class="param-desc">Deployment name for Azure OpenAI.</td></tr>
+      <tr><td>Prompt</td><td>String</td><td>Yes</td><td class="param-desc">Describe what you want the feature layer to represent. Be specific.</td></tr>
+      <tr><td>Output Layer</td><td>Feature Layer (Derived)</td><td>Auto</td><td class="param-desc">Layer created by the tool.</td></tr>
     </table>
+  </section>
+
+  <section>
     <h2>Tips</h2>
     <ul>
-      <li>Be creative with your prompt! For example: <code>"Create a layer of 10 random points in San Francisco with a 'type' field of restaurant or cafe."</code></li>
-      <li>Use the <strong>Model</strong> parameter to try different AI models for different results.</li>
-      <li>If using Azure or a local LLM, fill in the <strong>Endpoint</strong> and <strong>Deployment Name</strong> as needed.</li>
+      <li>Be creative with your prompt. Example: <code>Create a layer of 10 random points in San Francisco with a type field of restaurant or cafe.</code></li>
+      <li>Use the <strong>Model</strong> parameter to try different providers for unique results.</li>
+      <li>When using Azure or a local LLM, fill in the <strong>Endpoint</strong> and <strong>Deployment Name</strong>.</li>
     </ul>
-  </div>
+  </section>
+</main>
 </body>
 </html>

@@ -1,19 +1,134 @@
 import arcpy
 import json
 import os
+import html
+import re
 from arcgispro_ai.arcgispro_ai_utils import (
     MapUtils,
     FeatureLayerUtils,
     fetch_geojson,
     generate_python,
     add_ai_response_to_feature_layer,
-    map_to_json
+    map_to_json,
+    capture_interpretation_context
 )
 from arcgispro_ai.core.api_clients import (
     get_client,
     get_env_var,
-    OpenAIClient
+    OpenAIClient,
+    OpenRouterClient
 )
+
+TOOL_DOC_BASE_URL = "https://danmaps.github.io/arcgispro_ai/tools"
+DEFAULT_OPENROUTER_MODELS = [
+    "openai/gpt-4o-mini",
+    "openai/o3-mini",
+    "google/gemini-2.0-flash-exp:free",
+    "anthropic/claude-3.5-sonnet",
+    "deepseek/deepseek-chat"
+]
+
+# Known multimodal model markers per provider. The match is case-insensitive and
+# only used to guard tools that attempt to send screenshots.
+VISION_MODEL_HINTS = {
+    "OpenAI": ["gpt-4o", "gpt-4.1", "omni", "vision"],
+    "Azure OpenAI": ["gpt-4o", "gpt-4.1", "omni", "vision"],
+    "OpenRouter": [
+        "openai/gpt-4o",
+        "openai/gpt-4o-mini",
+        "openai/gpt-4.1",
+        "google/gemini",
+        "anthropic/claude-3.5",
+        "anthropic/claude-3-opus",
+        "meta-llama/llama-3.2-vision",
+    ],
+}
+
+def get_tool_doc_url(tool_slug: str) -> str:
+    """Return the documentation URL for a tool."""
+    return f"{TOOL_DOC_BASE_URL}/{tool_slug}.html"
+
+def add_tool_doc_link(tool_slug: str) -> None:
+    """Surface a documentation link for troubleshooting."""
+    arcpy.AddMessage(f"For troubleshooting tips, visit {get_tool_doc_url(tool_slug)}")
+
+
+def render_markdown_to_html(markdown_text: str) -> str:
+    """Convert a limited subset of markdown to styled HTML."""
+    lines = (markdown_text or "").strip().splitlines()
+    html_parts = []
+    in_list = False
+
+    def close_list():
+        nonlocal in_list
+        if in_list:
+            html_parts.append("</ul>")
+            in_list = False
+
+    def format_inline(value: str) -> str:
+        escaped = html.escape(value)
+        return re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", escaped)
+
+    for raw_line in lines:
+        line = raw_line.rstrip()
+        if not line.strip():
+            close_list()
+            continue
+        if line.startswith("###"):
+            close_list()
+            heading_text = line.lstrip("#").strip()
+            html_parts.append(
+                f"<h3 style='margin:16px 0 6px;font-size:15px;color:#0f172a;'>{format_inline(heading_text)}</h3>"
+            )
+        elif line.lstrip().startswith("- "):
+            if not in_list:
+                html_parts.append("<ul style='margin:6px 0 12px 18px; padding:0;'>")
+                in_list = True
+            bullet = line.lstrip()[2:].strip()
+            html_parts.append(
+                f"<li style='margin-bottom:4px;color:#1f2937;'>{format_inline(bullet)}</li>"
+            )
+        else:
+            close_list()
+            html_parts.append(
+                f"<p style='margin:6px 0 12px;color:#111827;'>{format_inline(line.strip())}</p>"
+            )
+    close_list()
+    return "".join(html_parts)
+
+
+def get_feature_count_value(layer: str, sql_query: str = None) -> int:
+    """Return the count of features for the provided layer and SQL query."""
+    temp_layer = None
+    try:
+        count_target = layer
+        if sql_query:
+            temp_name = f"budget_count_{os.urandom(4).hex()}"
+            temp_layer = arcpy.management.MakeFeatureLayer(layer, temp_name, sql_query).getOutput(0)
+            count_target = temp_layer
+        return int(arcpy.management.GetCount(count_target).getOutput(0))
+    except Exception:
+        return -1
+    finally:
+        if temp_layer:
+            try:
+                arcpy.management.Delete(temp_layer)
+            except Exception:
+                pass
+
+def resolve_api_key(source: str, api_key_map: dict, tool_slug: str) -> str:
+    """Fetch the API key for a provider, prompting the user if it is missing."""
+    env_var = api_key_map.get(source, "OPENROUTER_API_KEY")
+    if env_var:
+        api_key = get_env_var(env_var)
+        if not api_key:
+            arcpy.AddError(
+                f"No API key found for {source}. Try `setx {env_var} \"your-key\"` and restart ArcGIS Pro."
+            )
+            add_tool_doc_link(tool_slug)
+            raise ValueError(f"Missing API key for {source}")
+        return api_key
+    return ""
 
 def update_model_parameters(source: str, parameters: list, current_model: str = None) -> None:
     """Update model parameters based on the selected source.
@@ -33,6 +148,12 @@ def update_model_parameters(source: str, parameters: list, current_model: str = 
         "OpenAI": {
             "models": [],  # Will be populated dynamically
             "default": "gpt-4o-mini",
+            "endpoint": False,
+            "deployment": False
+        },
+        "OpenRouter": {
+            "models": [],  # Will be populated dynamically
+            "default": "openai/gpt-4o-mini",
             "endpoint": False,
             "deployment": False
         },
@@ -61,16 +182,27 @@ def update_model_parameters(source: str, parameters: list, current_model: str = 
     if not config:
         return
 
-    # If OpenAI is selected, fetch available models
+    # If OpenAI or OpenRouter is selected, fetch available models dynamically
     if source == "OpenAI":
         try:
             api_key = get_env_var("OPENAI_API_KEY")
+            if not api_key:
+                raise ValueError("Missing OPENAI_API_KEY")
             client = OpenAIClient(api_key)
             config["models"] = client.get_available_models()
             
         except Exception:
             # If fetching fails, use default hardcoded models
             config["models"] = ["gpt-4o-mini", "gpt-3.5-turbo", "gpt-4", "gpt-4-turbo-preview"]
+    elif source == "OpenRouter":
+        try:
+            api_key = get_env_var("OPENROUTER_API_KEY")
+            if not api_key:
+                raise ValueError("Missing OPENROUTER_API_KEY")
+            client = OpenRouterClient(api_key)
+            config["models"] = client.get_available_models()
+        except Exception:
+            config["models"] = DEFAULT_OPENROUTER_MODELS
 
     # Model parameter
     parameters[1].enabled = bool(config["models"])
@@ -88,6 +220,20 @@ def update_model_parameters(source: str, parameters: list, current_model: str = 
     # Deployment parameter
     parameters[3].enabled = config["deployment"]
 
+
+def model_supports_images(source: str, model: str = None) -> bool:
+    """Return True if the selected model is known to accept image input."""
+    provider_hints = VISION_MODEL_HINTS.get(source, [])
+    normalized = (model or "").lower().strip() if model else ""
+
+    if not provider_hints:
+        return False
+    if not normalized:
+        # Fall back to provider defaults if the user did not specify a model name.
+        return source in ("OpenAI", "Azure OpenAI")
+
+    return any(hint in normalized for hint in provider_hints)
+
 class Toolbox:
     def __init__(self):
         """Define the toolbox (the name of the toolbox is the name of the
@@ -101,6 +247,7 @@ class Toolbox:
         self.tools = [FeatureLayer,
                       Field,
                       GetMapInfo,
+                      InterpretMap,
                       Python,
                       ConvertTextToNumeric,
                       GenerateTool]
@@ -123,8 +270,8 @@ class FeatureLayer(object):
             direction="Input",
         )
         source.filter.type = "ValueList"
-        source.filter.list = ["OpenAI", "Azure OpenAI", "Claude", "DeepSeek", "Local LLM"]
-        source.value = "OpenAI"
+        source.filter.list = ["OpenRouter", "OpenAI", "Azure OpenAI", "Claude", "DeepSeek", "Local LLM"]
+        source.value = "OpenRouter"
 
         model = arcpy.Parameter(
             displayName="Model",
@@ -191,7 +338,9 @@ class FeatureLayer(object):
         update_model_parameters(source, parameters, current_model)
 
         import re
-        parameters[5].value = re.sub(r'[^\w]', '_', parameters[4].valueAsText)
+        prompt_text = parameters[4].valueAsText or ""
+        if prompt_text:
+            parameters[5].value = re.sub(r'[^\w]', '_', prompt_text)
         return
 
     def updateMessages(self, parameters):
@@ -208,15 +357,20 @@ class FeatureLayer(object):
         prompt = parameters[4].valueAsText
         output_layer_name = parameters[5].valueAsText
 
+        tool_slug = "FeatureLayer"
         # Get the appropriate API key
         api_key_map = {
             "OpenAI": "OPENAI_API_KEY",
             "Azure OpenAI": "AZURE_OPENAI_API_KEY",
             "Claude": "ANTHROPIC_API_KEY",
             "DeepSeek": "DEEPSEEK_API_KEY",
+            "OpenRouter": "OPENROUTER_API_KEY",
             "Local LLM": None
         }
-        api_key = get_env_var(api_key_map.get(source, "OPENAI_API_KEY"))
+        try:
+            api_key = resolve_api_key(source, api_key_map, tool_slug)
+        except ValueError:
+            return
 
         # Fetch GeoJSON and create feature layer
         try:
@@ -233,6 +387,7 @@ class FeatureLayer(object):
                 raise ValueError("Received empty GeoJSON data.")
         except Exception as e:
             arcpy.AddError(f"Error fetching GeoJSON: {str(e)}")
+            add_tool_doc_link(tool_slug)
             return
 
         return
@@ -259,8 +414,8 @@ class Field(object):
             direction="Input",
         )
         source.filter.type = "ValueList"
-        source.filter.list = ["OpenAI", "Azure OpenAI", "Claude", "DeepSeek", "Local LLM", "Wolfram Alpha"]
-        source.value = "OpenAI"
+        source.filter.list = ["OpenRouter", "OpenAI", "Azure OpenAI", "Claude", "DeepSeek", "Local LLM", "Wolfram Alpha"]
+        source.value = "OpenRouter"
 
         model = arcpy.Parameter(
             displayName="Model",
@@ -332,7 +487,25 @@ class Field(object):
             direction="Input"
         )
 
-        params = [source, model, endpoint, deployment, in_layer, out_layer, field_name, prompt, sql]
+        budget_limit_enabled = arcpy.Parameter(
+            displayName="Budget Conscious",
+            name="budget_limit_enabled",
+            datatype="GPBoolean",
+            parameterType="Required",
+            direction="Input",
+        )
+        budget_limit_enabled.value = True
+
+        budget_limit = arcpy.Parameter(
+            displayName="Max API Calls",
+            name="budget_limit",
+            datatype="GPLong",
+            parameterType="Required",
+            direction="Input",
+        )
+        budget_limit.value = 10
+
+        params = [source, model, endpoint, deployment, in_layer, out_layer, field_name, prompt, sql, budget_limit_enabled, budget_limit]
         return params
 
     def isLicensed(self):
@@ -358,6 +531,25 @@ class Field(object):
     def updateMessages(self, parameters):
         """Modify the messages created by internal validation for each tool
         parameter. This method is called after internal validation."""
+        in_layer = parameters[4]
+        sql = parameters[8]
+        budget_enabled = parameters[9]
+        budget_limit = parameters[10]
+
+        if in_layer.altered and in_layer.value:
+            feature_count = get_feature_count_value(in_layer.valueAsText, sql.valueAsText)
+            if feature_count >= 0:
+                source = parameters[0].valueAsText or "the selected provider"
+                in_layer.setWarningMessage(
+                    f"This will send {feature_count} requests to {source}."
+                )
+                if budget_enabled.value:
+                    allowed = budget_limit.value
+                    if allowed is not None and feature_count > int(allowed):
+                        budget_limit.setWarningMessage(
+                            f"Budget conscious mode will process only {allowed} of "
+                            f"{feature_count} matching features."
+                        )
         return
 
     def execute(self, parameters, messages):
@@ -371,17 +563,29 @@ class Field(object):
         field_name = parameters[6].valueAsText
         prompt = parameters[7].valueAsText
         sql = parameters[8].valueAsText
+        budget_limit_enabled = parameters[9].value
+        budget_limit = parameters[10].value
 
+        feature_count = get_feature_count_value(in_layer, sql)
+        request_limit = None
+        if budget_limit_enabled and budget_limit is not None:
+            request_limit = max(0, int(budget_limit))
+
+        tool_slug = "Field"
         # Get the appropriate API key
         api_key_map = {
             "OpenAI": "OPENAI_API_KEY",
             "Azure OpenAI": "AZURE_OPENAI_API_KEY",
             "Claude": "ANTHROPIC_API_KEY",
             "DeepSeek": "DEEPSEEK_API_KEY",
+            "OpenRouter": "OPENROUTER_API_KEY",
             "Local LLM": None,
             "Wolfram Alpha": "WOLFRAM_ALPHA_API_KEY"
         }
-        api_key = get_env_var(api_key_map.get(source, "OPENAI_API_KEY"))
+        try:
+            api_key = resolve_api_key(source, api_key_map, tool_slug)
+        except ValueError:
+            return
 
         # Add AI response to feature layer
         kwargs = {}
@@ -392,18 +596,50 @@ class Field(object):
         if deployment:
             kwargs["deployment_name"] = deployment
 
-        add_ai_response_to_feature_layer(
-            api_key,
-            source,
-            in_layer,
-            out_layer,
-            field_name,
-            prompt,
-            sql,
-            **kwargs
-        )
+        try:
+            result = add_ai_response_to_feature_layer(
+                api_key,
+                source,
+                in_layer,
+                out_layer,
+                field_name,
+                prompt,
+                sql,
+                enforce_request_limit=budget_limit_enabled,
+                max_requests=request_limit,
+                **kwargs
+            )
 
-        arcpy.AddMessage(f"{out_layer} created with AI-generated field {field_name}.")
+            arcpy.AddMessage(f"{out_layer} created with AI-generated field {field_name}.")
+
+            if request_limit is not None:
+                processed_features = request_limit
+                limit_applied = False
+                total_features_observed = feature_count if feature_count >= 0 else None
+
+                if isinstance(result, dict):
+                    processed_features = result.get("processed_features", request_limit)
+                    limit_applied = result.get("limit_applied", False)
+                    if total_features_observed is None:
+                        total_features_observed = result.get("total_features")
+
+                if not limit_applied and total_features_observed is not None:
+                    limit_applied = total_features_observed > processed_features
+
+                if limit_applied:
+                    if total_features_observed is not None:
+                        arcpy.AddWarning(
+                            f"Budget conscious mode processed {processed_features} of "
+                            f"{total_features_observed} features (max {request_limit} API calls)."
+                        )
+                    else:
+                        arcpy.AddWarning(
+                            f"Budget conscious mode reached the {request_limit} request limit; "
+                            "remaining features were left blank."
+                        )
+        except Exception as e:
+            arcpy.AddError(f"Failed to add AI-generated field: {str(e)}")
+            add_tool_doc_link(tool_slug)
         return
 
     def postExecute(self, parameters):
@@ -468,15 +704,254 @@ class GetMapInfo(object):
 
     def execute(self, parameters, messages):
         """The source code of the tool."""
-        in_map = parameters[0].valueAsText
-        out_json = parameters[1].valueAsText
-        map_info = map_to_json(in_map)
-        with open(out_json, "w") as f:
-            json.dump(map_info, f, indent=4)
+        tool_slug = "GetMapInfo"
+        try:
+            in_map = parameters[0].valueAsText
+            out_json = parameters[1].valueAsText
+            map_info = map_to_json(in_map)
+            with open(out_json, "w") as f:
+                json.dump(map_info, f, indent=4)
 
-        arcpy.AddMessage(f"Map info saved to {out_json}")
+            arcpy.AddMessage(f"Map info saved to {out_json}")
+        except Exception as e:
+            arcpy.AddError(f"Error exporting map info: {str(e)}")
+            add_tool_doc_link(tool_slug)
         return
-    
+
+
+class InterpretMap(object):
+    def __init__(self):
+        """Define the tool (tool name is the name of the class)."""
+        self.label = "Interpret Map"
+        self.description = "Interpret the active map view using an AI assistant"
+        self.params = arcpy.GetParameterInfo()
+        self.canRunInBackground = False
+
+    def getParameterInfo(self):
+        source = arcpy.Parameter(
+            displayName="Source",
+            name="source",
+            datatype="GPString",
+            parameterType="Required",
+            direction="Input",
+        )
+        source.filter.type = "ValueList"
+        source.filter.list = ["OpenRouter", "OpenAI", "Azure OpenAI", "Claude", "DeepSeek", "Local LLM"]
+        source.value = "OpenRouter"
+
+        model = arcpy.Parameter(
+            displayName="Model",
+            name="model",
+            datatype="GPString",
+            parameterType="Optional",
+            direction="Input",
+        )
+        model.value = ""
+        model.enabled = True
+
+        endpoint = arcpy.Parameter(
+            displayName="Endpoint",
+            name="endpoint",
+            datatype="GPString",
+            parameterType="Optional",
+            direction="Input",
+        )
+        endpoint.value = ""
+        endpoint.enabled = False
+
+        deployment = arcpy.Parameter(
+            displayName="Deployment Name",
+            name="deployment",
+            datatype="GPString",
+            parameterType="Optional",
+            direction="Input",
+        )
+        deployment.value = ""
+        deployment.enabled = False
+
+        max_features = arcpy.Parameter(
+            displayName="Max Features Per Layer",
+            name="max_features",
+            datatype="GPLong",
+            parameterType="Optional",
+            direction="Input",
+        )
+        max_features.value = 50
+
+        include_screenshot = arcpy.Parameter(
+            displayName="Include Map Screenshot",
+            name="include_screenshot",
+            datatype="GPBoolean",
+            parameterType="Optional",
+            direction="Input",
+        )
+        include_screenshot.value = True
+
+        return [source, model, endpoint, deployment, max_features, include_screenshot]
+
+    def isLicensed(self):
+        return True
+
+    def updateParameters(self, parameters):
+        source = parameters[0].value
+        current_model = parameters[1].value
+        update_model_parameters(source, parameters, current_model)
+
+        if not parameters[4].value:
+            parameters[4].value = 50
+        if parameters[5].value is None:
+            parameters[5].value = True
+        return
+
+    def updateMessages(self, parameters):
+        return
+
+    def execute(self, parameters, messages):
+        source = parameters[0].valueAsText
+        model = parameters[1].valueAsText
+        endpoint = parameters[2].valueAsText
+        deployment = parameters[3].valueAsText
+        max_features = parameters[4].value
+        include_screenshot = parameters[5].value
+
+        tool_slug = "InterpretMap"
+        api_key_map = {
+            "OpenAI": "OPENAI_API_KEY",
+            "Azure OpenAI": "AZURE_OPENAI_API_KEY",
+            "Claude": "ANTHROPIC_API_KEY",
+            "DeepSeek": "DEEPSEEK_API_KEY",
+            "OpenRouter": "OPENROUTER_API_KEY",
+            "Local LLM": None
+        }
+        try:
+            api_key = resolve_api_key(source, api_key_map, tool_slug)
+        except ValueError:
+            return
+
+        max_features_cap = int(max_features) if max_features else 50
+
+        kwargs = {}
+        if model:
+            kwargs["model"] = model
+        if endpoint:
+            kwargs["endpoint"] = endpoint
+        if deployment:
+            kwargs["deployment_name"] = deployment
+
+        try:
+            context = capture_interpretation_context(max_features_per_layer=max_features_cap)
+        except Exception as exc:
+            arcpy.AddError(f"Unable to collect map context: {exc}")
+            add_tool_doc_link(tool_slug)
+            return
+
+        if context.get("map", {}).get("status") == "No active map":
+            arcpy.AddError("No active map is available for interpretation.")
+            add_tool_doc_link(tool_slug)
+            return
+
+        screenshot_info = context.get("screenshot") if context else None
+        provider_supports_vision = source in ("OpenAI", "Azure OpenAI", "OpenRouter")
+        model_allows_vision = model_supports_images(source, model) if provider_supports_vision else False
+        model_label = model or "current model"
+        use_screenshot = bool(include_screenshot) and bool(screenshot_info) and provider_supports_vision and model_allows_vision
+
+        if bool(include_screenshot):
+            if not screenshot_info:
+                arcpy.AddWarning("Map screenshot could not be captured; proceeding without an image.")
+            elif not provider_supports_vision:
+                arcpy.AddWarning("Selected provider does not support images; sending context without the screenshot.")
+            elif not model_allows_vision:
+                arcpy.AddWarning(
+                    f"The selected model '{model_label}' does not appear to accept image input; sending context without the screenshot."
+                )
+
+        textual_context = dict(context)
+        textual_context.pop("screenshot", None)
+
+        interpretation_instructions = (
+            "You are an ArcGIS Pro expert interpreting the active map view. "
+            "Use the provided context to describe what the map communicates at this scale. "
+            "If an image of the map view is provided, treat it as the source of truth for what is on screen and reference it even if the textual context is sparse or contradictory. "
+            "Keep the response concise and structured with these sections: "
+            "1) Interpretation, "
+            "2) Verified Observations (grounded in the image first (if provided), then GeoJSON-like data), "
+            "3) Interpretation Boundaries (what the current symbology, scale, and representation support or limit), "
+            "4) Confidence Notes, and "
+            "5) One Suggested Next Step. "
+            "Only describe limitations that are visible or implied by the map itself (e.g., scale, aggregation, symbology choices). "
+            "Do not speculate about unseen data processing, network modeling, or simplification unless there is visual evidence on the map. "
+            "Clearly distinguish between measured data, visual inference, and uncertainty."
+        )
+
+
+        user_prompt = (
+            "Review the map context below. It includes the current view details, sampled layer data, and other metadata.\n"
+            f"Context JSON:\n{json.dumps(textual_context, indent=2)}"
+        )
+
+        user_content = user_prompt
+        if use_screenshot:
+            user_content = [
+                {"type": "text", "text": user_prompt},
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": f"data:image/png;base64,{screenshot_info['base64']}",
+                        "detail": "low",
+                    },
+                },
+            ]
+
+        messages = [
+            {"role": "system", "content": interpretation_instructions},
+            {"role": "user", "content": user_content},
+        ]
+
+        client = get_client(source, api_key, **kwargs)
+        try:
+            if use_screenshot:
+                response = client.get_vision_completion(messages, max_tokens=2000)
+            else:
+                response = client.get_completion(messages, max_tokens=2000)
+            formatted_response = response.strip()
+
+            interpretation_html = render_markdown_to_html(formatted_response)
+            html_sections = [
+                "<html>",
+                "<body>",
+                "<div style='font-family:Segoe UI, sans-serif; line-height:1.5; font-size:13px;'>",
+                interpretation_html,
+            ]
+
+            if screenshot_info:
+                preview_width = screenshot_info.get("width")
+                preview_height = screenshot_info.get("height")
+                resolution = screenshot_info.get("resolution", "unknown")
+                size_label = f"{preview_width or '?'}x{preview_height or '?'} px @ {resolution} dpi"
+                html_sections.extend(
+                    [
+                        "<div style='margin-top:18px;'>",
+                        "<div style='font-weight:600;color:#0f172a;margin-bottom:6px;'>"
+                        f"Map screenshot preview <span style='font-weight:400;color:#475569;'>({size_label})</span>"
+                        "</div>",
+                        "<div>",
+                        f"<img src='data:image/png;base64,{screenshot_info['base64']}' "
+                        "style='max-width:100%;border:1px solid #d1d5db;border-radius:6px; box-shadow:0 5px 20px rgba(15,23,42,0.15);' />",
+                        "</div>"
+                    ]
+                )
+
+            html_sections.extend(["</div>", "</body>", "</html>"])
+            arcpy.AddMessage("".join(html_sections))
+        except Exception as exc:
+            arcpy.AddError(f"Failed to interpret the map: {exc}")
+            add_tool_doc_link(tool_slug)
+        return
+
+    def postExecute(self, parameters):
+        return
+
 class Python(object):
     def __init__(self):
         """Define the tool (tool name is the name of the class)."""
@@ -495,8 +970,8 @@ class Python(object):
             direction="Input",
         )
         source.filter.type = "ValueList"
-        source.filter.list = ["OpenAI", "Azure OpenAI", "Claude", "DeepSeek", "Local LLM"]
-        source.value = "OpenAI"
+        source.filter.list = ["OpenRouter", "OpenAI", "Azure OpenAI", "Claude", "DeepSeek", "Local LLM"]
+        source.value = "OpenRouter"
 
         model = arcpy.Parameter(
             displayName="Model",
@@ -584,7 +1059,7 @@ class Python(object):
         layers = parameters[4].values
         # combine map and layer data into one JSON
         # only do this if context is empty
-        if parameters[6].valueAsText == "":
+        if not parameters[6].valueAsText or parameters[6].valueAsText.strip() == "":
             context_json = {
                 "map": map_to_json(), 
                 "layers": FeatureLayerUtils.get_layer_info(layers)
@@ -607,15 +1082,20 @@ class Python(object):
         prompt = parameters[5].value
         derived_context = parameters[6].value
 
+        tool_slug = "Python"
         # Get the appropriate API key
         api_key_map = {
             "OpenAI": "OPENAI_API_KEY",
             "Azure OpenAI": "AZURE_OPENAI_API_KEY",
             "Claude": "ANTHROPIC_API_KEY",
             "DeepSeek": "DEEPSEEK_API_KEY",
+            "OpenRouter": "OPENROUTER_API_KEY",
             "Local LLM": None
         }
-        api_key = get_env_var(api_key_map.get(source, "OPENAI_API_KEY"))
+        try:
+            api_key = resolve_api_key(source, api_key_map, tool_slug)
+        except ValueError:
+            return
 
         # Generate Python code
         kwargs = {}
@@ -644,6 +1124,11 @@ class Python(object):
                 **kwargs
             )
 
+            if not code_snippet:
+                arcpy.AddError("No code was generated. Please adjust your prompt or provider and try again.")
+                add_tool_doc_link(tool_slug)
+                return
+
             # if eval == True:
             #     try:
             #         if code_snippet:
@@ -669,6 +1154,7 @@ class Python(object):
                 )
             else:
                 arcpy.AddError(str(e))
+            add_tool_doc_link(tool_slug)
             return
 
         return
@@ -698,8 +1184,8 @@ class ConvertTextToNumeric(object):
             direction="Input",
         )
         source.filter.type = "ValueList"
-        source.filter.list = ["OpenAI", "Azure OpenAI", "Claude", "DeepSeek", "Local LLM"]
-        source.value = "OpenAI"
+        source.filter.list = ["OpenRouter", "OpenAI", "Azure OpenAI", "Claude", "DeepSeek", "Local LLM"]
+        source.value = "OpenRouter"
 
         model = arcpy.Parameter(
             displayName="Model",
@@ -747,7 +1233,25 @@ class ConvertTextToNumeric(object):
             direction="Input",
         )
 
-        params = [source, model, endpoint, deployment, in_layer, field]
+        budget_limit_enabled = arcpy.Parameter(
+            displayName="Budget Conscious",
+            name="budget_limit_enabled",
+            datatype="GPBoolean",
+            parameterType="Required",
+            direction="Input",
+        )
+        budget_limit_enabled.value = True
+
+        budget_limit = arcpy.Parameter(
+            displayName="Max API Calls",
+            name="budget_limit",
+            datatype="GPLong",
+            parameterType="Required",
+            direction="Input",
+        )
+        budget_limit.value = 10
+
+        params = [source, model, endpoint, deployment, in_layer, field, budget_limit_enabled, budget_limit]
         return params
 
     def isLicensed(self):
@@ -767,6 +1271,24 @@ class ConvertTextToNumeric(object):
     def updateMessages(self, parameters):
         """Modify the messages created by internal validation for each tool
         parameter. This method is called after internal validation."""
+        in_layer = parameters[4]
+        budget_enabled = parameters[6]
+        budget_limit = parameters[7]
+
+        if in_layer.altered and in_layer.value:
+            feature_count = get_feature_count_value(in_layer.valueAsText)
+            if feature_count >= 0:
+                source = parameters[0].valueAsText or "the selected provider"
+                in_layer.setWarningMessage(
+                    f"This will send {feature_count} requests to {source}."
+                )
+                if budget_enabled.value:
+                    allowed = budget_limit.value
+                    if allowed is not None and feature_count > int(allowed):
+                        budget_limit.setWarningMessage(
+                            f"Budget conscious mode will process only {allowed} of "
+                            f"{feature_count} selected features."
+                        )
         return
 
     def execute(self, parameters, messages):
@@ -776,41 +1298,77 @@ class ConvertTextToNumeric(object):
         deployment = parameters[3].valueAsText
         in_layer = parameters[4].valueAsText
         field = parameters[5].valueAsText
+        budget_limit_enabled = parameters[6].value
+        budget_limit = parameters[7].value
 
+        feature_count = get_feature_count_value(in_layer)
+        request_limit = None
+        if budget_limit_enabled and budget_limit is not None:
+            request_limit = max(0, int(budget_limit))
+
+        tool_slug = "ConvertTextToNumeric"
         # Get the appropriate API key
         api_key_map = {
             "OpenAI": "OPENAI_API_KEY",
             "Azure OpenAI": "AZURE_OPENAI_API_KEY",
             "Claude": "ANTHROPIC_API_KEY",
             "DeepSeek": "DEEPSEEK_API_KEY",
+            "OpenRouter": "OPENROUTER_API_KEY",
             "Local LLM": None
         }
-        api_key = get_env_var(api_key_map.get(source, "OPENAI_API_KEY"))
+        try:
+            api_key = resolve_api_key(source, api_key_map, tool_slug)
+        except ValueError:
+            return
 
-        # Get the field values
-        field_values = []
-        with arcpy.da.SearchCursor(in_layer, [field]) as cursor:
-            for row in cursor:
-                field_values.append(row[0])        # Convert the entire series using the selected AI provider
-        kwargs = {}
-        if model:
-            kwargs["model"] = model
-        if endpoint:
-            kwargs["endpoint"] = endpoint
-        if deployment:
-            kwargs["deployment_name"] = deployment
+        try:
+            # Get the field values
+            field_values = []
+            limit_applied = False
+            with arcpy.da.SearchCursor(in_layer, [field]) as cursor:
+                for row in cursor:
+                    if request_limit is not None and len(field_values) >= request_limit:
+                        limit_applied = True
+                        break
+                    field_values.append(row[0])
 
-        converted_values = get_client(source, api_key, **kwargs).convert_series_to_numeric(field_values)
+            kwargs = {}
+            if model:
+                kwargs["model"] = model
+            if endpoint:
+                kwargs["endpoint"] = endpoint
+            if deployment:
+                kwargs["deployment_name"] = deployment
 
-        # Add a new field to store the converted numeric values
-        field_name_new = f"{field}_numeric"
-        arcpy.AddField_management(in_layer, field_name_new, "DOUBLE")
+            converted_values = get_client(source, api_key, **kwargs).convert_series_to_numeric(field_values)
 
-        # Update the new field with the converted values
-        with arcpy.da.UpdateCursor(in_layer, [field, field_name_new]) as cursor:
-            for i, row in enumerate(cursor):
-                row[1] = converted_values[i]
-                cursor.updateRow(row)
+            # Add a new field to store the converted numeric values
+            field_name_new = f"{field}_numeric"
+            arcpy.AddField_management(in_layer, field_name_new, "DOUBLE")
+
+            # Update the new field with the converted values
+            processed_features = len(converted_values)
+            with arcpy.da.UpdateCursor(in_layer, [field, field_name_new]) as cursor:
+                for i, row in enumerate(cursor):
+                    if i >= processed_features:
+                        break
+                    row[1] = converted_values[i]
+                    cursor.updateRow(row)
+
+            if request_limit is not None:
+                if feature_count >= 0 and feature_count > request_limit:
+                    arcpy.AddWarning(
+                        f"Budget conscious mode converted {processed_features} of "
+                        f"{feature_count} features (max {request_limit} API calls)."
+                    )
+                elif feature_count < 0 and limit_applied:
+                    arcpy.AddWarning(
+                        f"Budget conscious mode stopped after {processed_features} features "
+                        "due to the max API call limit."
+                    )
+        except Exception as e:
+            arcpy.AddError(f"Error converting text to numeric values: {str(e)}")
+            add_tool_doc_link(tool_slug)
 
     def postExecute(self, parameters):
         """This method takes place after outputs are processed and
@@ -834,8 +1392,8 @@ class GenerateTool(object):
             direction="Input",
         )
         source.filter.type = "ValueList"
-        source.filter.list = ["OpenAI", "Azure OpenAI", "Claude", "DeepSeek", "Local LLM"]
-        source.value = "OpenAI"
+        source.filter.list = ["OpenRouter", "OpenAI", "Azure OpenAI", "Claude", "DeepSeek", "Local LLM"]
+        source.value = "OpenRouter"
 
         model = arcpy.Parameter(
             displayName="Model",
@@ -1056,15 +1614,20 @@ class GenerateTool(object):
         parameter_definition = parameters[11].valueAsText
         output_toolbox = parameters[12].valueAsText
         
+        tool_slug = "GenerateTool"
         # Get the appropriate API key
         api_key_map = {
             "OpenAI": "OPENAI_API_KEY",
             "Azure OpenAI": "AZURE_OPENAI_API_KEY",
             "Claude": "ANTHROPIC_API_KEY",
             "DeepSeek": "DEEPSEEK_API_KEY",
+            "OpenRouter": "OPENROUTER_API_KEY",
             "Local LLM": None
         }
-        api_key = get_env_var(api_key_map.get(source, "OPENAI_API_KEY"))
+        try:
+            api_key = resolve_api_key(source, api_key_map, tool_slug)
+        except ValueError:
+            return
         
         # Set up parameters for API calls
         kwargs = {}
@@ -1084,7 +1647,7 @@ class GenerateTool(object):
             arcpy.AddMessage("Generating Python code from natural language prompt...")
             # Create a minimal context - no map info needed for this tool
             context_json = {"layers": []}
-              try:
+            try:
                 # Use the existing generate_python function to convert prompt to code
                 python_code = generate_python(
                     api_key,
@@ -1096,11 +1659,13 @@ class GenerateTool(object):
                 
                 if not python_code:
                     arcpy.AddError("Failed to generate Python code from prompt. Please try again.")
+                    add_tool_doc_link(tool_slug)
                     return
                     
                 arcpy.AddMessage("Successfully generated Python code from prompt")
             except Exception as e:
                 arcpy.AddError(f"Error generating Python code: {str(e)}")
+                add_tool_doc_link(tool_slug)
                 return
                 
         # Step 2: Generate the toolbox structure
@@ -1134,8 +1699,7 @@ Requirements:
 4. Implement all required methods: __init__, getParameterInfo, isLicensed, updateParameters, updateMessages, execute, and postExecute
 5. Follow ArcGIS Pro Python Toolbox best practices
 
-"""
-        
+"""        
         if param_structure:
             prompt_text += f"Use the following parameter structure: {json.dumps(param_structure, indent=2)}"
             
@@ -1143,10 +1707,18 @@ Requirements:
         try:
             # Generate the toolbox code using the AI model
             client = get_client(source, api_key, **kwargs)
-            response = client.generate_text(prompt_text)
+            
+            # Format the prompt as messages for the AI client
+            messages = [
+                {"role": "system", "content": "You are a helpful assistant that generates ArcGIS Python Toolbox (.pyt) files."},
+                {"role": "user", "content": prompt_text}
+            ]
+            
+            response = client.get_completion(messages)
             
             if not response:
                 arcpy.AddError("Failed to generate toolbox code. Please try again.")
+                add_tool_doc_link(tool_slug)
                 return
                 
             # Extract the Python code from the response
@@ -1176,6 +1748,7 @@ Requirements:
                 
         except Exception as e:
             arcpy.AddError(f"Error generating toolbox: {str(e)}")
+            add_tool_doc_link(tool_slug)
             return
             
         return

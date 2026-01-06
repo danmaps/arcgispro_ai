@@ -1,3 +1,4 @@
+import base64
 import time
 from datetime import datetime
 import arcpy
@@ -5,7 +6,13 @@ import json
 import os
 import tempfile
 import re
-from typing import Dict, List, Union, Optional, Any
+from typing import Dict, List, Union, Optional, Any, Tuple
+
+
+try:
+    ArcGISMapType = arcpy.mp.Map  # type: ignore[attr-defined]
+except AttributeError:
+    ArcGISMapType = Any
 
 from .core.api_clients import get_client, GeoJSONUtils, parse_numeric_value, get_env_var
 
@@ -48,6 +55,23 @@ class MapUtils:
             extent.YMax + expansion["y"],
         )
 
+    @staticmethod
+    def extent_polygon(extent: arcpy.Extent, spatial_reference: Optional[arcpy.SpatialReference]) -> Optional[arcpy.Polygon]:
+        """Create a polygon from an extent."""
+        if not extent:
+            return None
+
+        array = arcpy.Array(
+            [
+                arcpy.Point(extent.XMin, extent.YMin),
+                arcpy.Point(extent.XMin, extent.YMax),
+                arcpy.Point(extent.XMax, extent.YMax),
+                arcpy.Point(extent.XMax, extent.YMin),
+                arcpy.Point(extent.XMin, extent.YMin),
+            ]
+        )
+        return arcpy.Polygon(array, spatial_reference)
+
 
 class FeatureLayerUtils:
     @staticmethod
@@ -86,6 +110,185 @@ class FeatureLayerUtils:
                         ),
                     }
         return layers_info
+
+    @staticmethod
+    def _get_attribute_fields(dataset, max_fields: int = 5) -> List[str]:
+        """Return a small set of representative attribute fields."""
+        skip_names = {"shape", "shape_area", "shape_length", "geometry"}
+        allowed_types = {"OID", "Integer", "SmallInteger", "Double", "Single", "String"}
+        fields: List[str] = []
+
+        if not hasattr(dataset, "fields"):
+            return fields
+
+        for field in dataset.fields:
+            if field.name.lower() in skip_names:
+                continue
+            if field.type not in allowed_types:
+                continue
+            fields.append(field.name)
+            if len(fields) >= max_fields:
+                break
+        return fields
+
+    @staticmethod
+    def _simplify_geometry(geometry: arcpy.Geometry, tolerance: float) -> arcpy.Geometry:
+        """Simplify geometry to reduce payload size."""
+        if not geometry or tolerance <= 0:
+            return geometry
+        try:
+            simplified = geometry.generalize(tolerance, True)
+            return simplified if simplified else geometry
+        except Exception:
+            # If simplification fails, return the original geometry
+            return geometry
+
+    @staticmethod
+    def _get_layer_features(
+        layer: Any,
+        extent_polygon: Optional[arcpy.Polygon],
+        max_features: int = 50,
+        simplify_ratio: float = 0.01,
+    ) -> Dict[str, Any]:
+        """Collect simplified GeoJSON-like data for the layer within the view extent."""
+        dataset = arcpy.Describe(layer.dataSource)
+        spatial_reference = getattr(dataset, "spatialReference", None)
+        attribute_fields = FeatureLayerUtils._get_attribute_fields(dataset)
+        layer_features: List[Dict[str, Any]] = []
+
+        tolerance = 0
+        if extent_polygon and extent_polygon.extent:
+            tolerance = max(extent_polygon.extent.width, extent_polygon.extent.height) * simplify_ratio
+
+        temp_layer_name = f"interpret_{re.sub('[^0-9A-Za-z]+', '_', layer.name)}_{int(time.time())}"
+        temp_layer = None
+        try:
+            temp_layer = arcpy.management.MakeFeatureLayer(layer, temp_layer_name).getOutput(0)
+            if extent_polygon:
+                arcpy.management.SelectLayerByLocation(temp_layer, "INTERSECT", extent_polygon)
+
+            cursor_fields = ["SHAPE@"] + attribute_fields
+            with arcpy.da.SearchCursor(temp_layer, cursor_fields, spatial_reference=spatial_reference) as cursor:
+                for i, row in enumerate(cursor):
+                    if i >= max_features:
+                        break
+                    geometry = FeatureLayerUtils._simplify_geometry(row[0], tolerance)
+                    attributes = {
+                        attribute_fields[idx]: row[idx + 1]
+                        for idx in range(len(attribute_fields))
+                    }
+                    layer_features.append(
+                        {
+                            "geometry": json.loads(geometry.JSON) if geometry else None,
+                            "attributes": attributes,
+                        }
+                    )
+        except Exception as exc:
+            arcpy.AddWarning(f"Unable to sample features for {layer.name}: {exc}")
+        finally:
+            if temp_layer:
+                try:
+                    arcpy.management.Delete(temp_layer)
+                except Exception as delete_exc:
+                    arcpy.AddWarning(f"Failed to delete temporary layer {temp_layer}: {delete_exc}")
+
+        return {
+            "name": layer.name,
+            "geometry_type": getattr(dataset, "shapeType", "Unknown"),
+            "renderer": (
+                layer.symbology.renderer.type
+                if hasattr(layer, "symbology") and hasattr(layer.symbology, "renderer")
+                else "Unknown"
+            ),
+            "spatial_reference": getattr(spatial_reference, "name", "Unknown"),
+            "feature_cap": max_features,
+            "field_sample": attribute_fields,
+            "feature_sample_count": len(layer_features),
+            "features": layer_features,
+        }
+
+    @staticmethod
+    def _summarize_layer(layer: Any) -> Dict[str, Any]:
+        """Return a lightweight description for non-feature layers."""
+        info: Dict[str, Any] = {
+            "name": getattr(layer, "name", "Unknown Layer"),
+            "visible": getattr(layer, "visible", False),
+            "is_feature_layer": getattr(layer, "isFeatureLayer", False),
+            "is_group_layer": getattr(layer, "isGroupLayer", False),
+            "layer_type": getattr(layer, "longName", getattr(layer, "name", "Unknown")),
+        }
+        try:
+            describe_target = None
+            if hasattr(layer, "supports") and layer.supports("DATASOURCE"):
+                describe_target = layer.dataSource
+            elif hasattr(layer, "dataSource"):
+                describe_target = layer.dataSource
+            if describe_target:
+                dataset = arcpy.Describe(describe_target)
+            else:
+                dataset = arcpy.Describe(layer)
+            info.update(
+                {
+                    "source_type": getattr(dataset, "dataType", "Unknown"),
+                    "spatial_reference": getattr(
+                        getattr(dataset, "spatialReference", None), "name", "Unknown"
+                    ),
+                    "extent": (
+                        {
+                            "xmin": dataset.extent.XMin,
+                            "ymin": dataset.extent.YMin,
+                            "xmax": dataset.extent.XMax,
+                            "ymax": dataset.extent.YMax,
+                        }
+                        if hasattr(dataset, "extent") and dataset.extent
+                        else None
+                    ),
+                }
+            )
+        except Exception:
+            info["source_type"] = "Unknown"
+        return info
+
+    @staticmethod
+    def capture_visible_layer_context(
+        active_map: ArcGISMapType,
+        view_extent: Optional[arcpy.Extent],
+        max_features_per_layer: int = 50,
+    ) -> List[Dict[str, Any]]:
+        """Gather simplified GeoJSON for visible layers within the active view."""
+        if not active_map:
+            return []
+
+        extent_polygon = None
+        if view_extent:
+            extent_polygon = MapUtils.extent_polygon(view_extent, active_map.spatialReference)
+
+        layers_data: List[Dict[str, Any]] = []
+
+        def _process_layer(layer_obj: Any) -> None:
+            if not getattr(layer_obj, "visible", False):
+                return
+            if getattr(layer_obj, "isGroupLayer", False):
+                child_layers = []
+                if hasattr(layer_obj, "listLayers"):
+                    child_layers = layer_obj.listLayers()
+                for child in child_layers or []:
+                    _process_layer(child)
+                return
+            if getattr(layer_obj, "isFeatureLayer", False):
+                layers_data.append(
+                    FeatureLayerUtils._get_layer_features(
+                        layer_obj,
+                        extent_polygon,
+                        max_features=max_features_per_layer,
+                    )
+                )
+            else:
+                layers_data.append(FeatureLayerUtils._summarize_layer(layer_obj))
+
+        for layer in active_map.listLayers():
+            _process_layer(layer)
+        return layers_data
 
 
 def map_to_json(
@@ -218,74 +421,6 @@ def map_to_json(
             "properties": {}
         }
 
-    for layer in active_map.listLayers():
-        layer_info = {
-            "name": layer.name,
-            "feature_layer": layer.isFeatureLayer,
-            "raster_layer": layer.isRasterLayer,
-            "web_layer": layer.isWebLayer,
-            "visible": layer.visible,
-            "metadata": (
-                MapUtils.metadata_to_dict(layer.metadata)
-                if hasattr(layer, "metadata")
-                else "No metadata"
-            ),
-        }
-
-        if layer.isFeatureLayer:
-            dataset = arcpy.Describe(layer.dataSource)
-            layer_info.update(
-                {
-                    "spatial_reference": getattr(
-                        dataset.spatialReference, "name", "Unknown"
-                    ),
-                    "extent": (
-                        {
-                            "xmin": dataset.extent.XMin,
-                            "ymin": dataset.extent.YMin,
-                            "xmax": dataset.extent.XMax,
-                            "ymax": dataset.extent.YMax,
-                        }
-                        if hasattr(dataset, "extent")
-                        else "Unknown"
-                    ),
-                    "fields": (
-                        [
-                            {
-                                "name": field.name,
-                                "type": field.type,
-                                "length": field.length,
-                            }
-                            for field in dataset.fields
-                        ]
-                        if hasattr(dataset, "fields")
-                        else []
-                    ),
-                    "record_count": (
-                        int(arcpy.management.GetCount(layer.dataSource)[0])
-                        if dataset.dataType in ["FeatureClass", "Table"]
-                        else 0
-                    ),
-                    "source_type": getattr(dataset, "dataType", "Unknown"),
-                    "geometry_type": getattr(dataset, "shapeType", "Unknown"),
-                    "renderer": (
-                        layer.symbology.renderer.type
-                        if hasattr(layer, "symbology")
-                        and hasattr(layer.symbology, "renderer")
-                        else "Unknown"
-                    ),
-                    "labeling": getattr(layer, "showLabels", "Unknown"),
-                }
-            )
-
-        map_info["layers"].append(layer_info)
-
-    if output_json_path:
-        with open(output_json_path, "w") as json_file:
-            json.dump(map_info, json_file, indent=4)
-        print(f"Map information has been written to {output_json_path}")
-
-    return map_info
 
 
 def create_feature_layer_from_geojson(
@@ -349,7 +484,7 @@ def create_feature_layer_from_geojson(
 
 
 def fetch_geojson(
-    api_key: str, query: str, output_layer_name: str, source: str = "OpenAI", **kwargs
+    api_key: str, query: str, output_layer_name: str, source: str = "OpenRouter", **kwargs
 ) -> Optional[Dict[str, Any]]:
     """Fetch GeoJSON data using AI response and create a feature layer."""
     client = get_client(source, api_key, **kwargs)
@@ -381,7 +516,7 @@ def generate_python(
     api_key: str,
     map_info: Dict[str, Any],
     prompt: str,
-    source: str = "OpenAI",
+    source: str = "OpenRouter",
     explain: bool = False,
     **kwargs,
 ) -> Optional[str]:
@@ -461,6 +596,133 @@ def generate_python(
         return None
 
 
+def capture_map_view_screenshot(
+    view: Any, width: int = 1280, height: int = 720, resolution: int = 150
+) -> Optional[Dict[str, Any]]:
+    """Capture the active map view as a PNG and return metadata plus base64 content."""
+    if view is None:
+        arcpy.AddWarning("No active view available; skipping screenshot.")
+        return None
+
+    view_type = getattr(view, "type", "")
+    if isinstance(view_type, str) and view_type:
+        view_type_lower = view_type.lower()
+    else:
+        view_type_lower = ""
+
+    if view_type_lower and "map" not in view_type_lower and not hasattr(view, "camera"):
+        arcpy.AddWarning(f"The active view ({view_type}) is not a map view; skipping screenshot.")
+        return None
+
+    def _png_dimensions(path: str) -> Tuple[Optional[int], Optional[int]]:
+        """Read PNG header to determine output size without external deps."""
+        try:
+            with open(path, "rb") as png_file:
+                header = png_file.read(24)
+            if len(header) >= 24 and header.startswith(b"\x89PNG\r\n\x1a\n"):
+                width_bytes = header[16:20]
+                height_bytes = header[20:24]
+                return int.from_bytes(width_bytes, "big"), int.from_bytes(height_bytes, "big")
+        except Exception:
+            return None, None
+        return None, None
+
+    exporter = None
+    export_method = None
+
+    if hasattr(view, "exportToPNG"):
+        def exporter(path: str) -> None:
+            view.exportToPNG(path, width=width, height=height, resolution=resolution)
+        export_method = "exportToPNG"
+    elif hasattr(view, "exportView"):
+        # Map views expose exportView instead of exportToPNG.
+        def exporter(path: str) -> None:
+            try:
+                view.exportView(path, resolution=resolution)
+            except TypeError:
+                view.exportView(path)
+        export_method = "exportView"
+    else:
+        arcpy.AddWarning("The active view does not support image export; skipping screenshot.")
+        return None
+
+    temp_dir = tempfile.mkdtemp()
+    screenshot_path = os.path.join(temp_dir, "map_view.png")
+    try:
+        exporter(screenshot_path)
+        actual_width, actual_height = _png_dimensions(screenshot_path)
+        with open(screenshot_path, "rb") as image_file:
+            encoded = base64.b64encode(image_file.read()).decode("utf-8")
+        return {
+            "path": screenshot_path,
+            "width": actual_width if actual_width is not None else (width if export_method == "exportToPNG" else None),
+            "height": actual_height if actual_height is not None else (height if export_method == "exportToPNG" else None),
+            "resolution": resolution,
+            "export_method": export_method,
+            "base64": encoded,
+        }
+    except Exception as exc:
+        arcpy.AddWarning(f"Unable to capture map view screenshot: {exc}")
+        return None
+
+
+def capture_interpretation_context(max_features_per_layer: int = 50) -> Dict[str, Any]:
+    """Collect view, map, and layer context for interpretation."""
+    aprx = arcpy.mp.ArcGISProject("CURRENT")
+    active_map = aprx.activeMap
+    active_view = aprx.activeView
+
+    if not active_map:
+        return {
+            "map": {"status": "No active map"},
+            "view": {},
+            "layers": [],
+            "screenshot": None,
+        }
+
+    camera = getattr(active_view, "camera", None)
+    extent = camera.getExtent() if camera and hasattr(camera, "getExtent") else None
+    view_details = {
+        "scale": getattr(camera, "scale", None) if camera else None,
+        "spatial_reference": getattr(active_map.spatialReference, "name", "Unknown"),
+    }
+    if extent:
+        view_details.update(
+            {
+                "extent": {
+                    "xmin": extent.XMin,
+                    "ymin": extent.YMin,
+                    "xmax": extent.XMax,
+                    "ymax": extent.YMax,
+                }
+            }
+        )
+
+    screenshot = capture_map_view_screenshot(active_view)
+    visible_layers = FeatureLayerUtils.capture_visible_layer_context(
+        active_map, extent, max_features_per_layer=max_features_per_layer
+    )
+
+    try:
+        map_overview = map_to_json(active_map.name)
+    except Exception:
+        map_overview = {}
+
+    map_metadata = {
+        "name": active_map.name,
+        "spatial_reference": getattr(active_map.spatialReference, "name", "Unknown"),
+        "visible_layer_count": len([lyr for lyr in active_map.listLayers() if getattr(lyr, "visible", False)]),
+    }
+
+    return {
+        "map": map_metadata,
+        "map_overview": map_overview,
+        "view": view_details,
+        "layers": visible_layers,
+        "screenshot": screenshot,
+    }
+
+
 def add_ai_response_to_feature_layer(
     api_key: str,
     source: str,
@@ -469,6 +731,8 @@ def add_ai_response_to_feature_layer(
     field_name: str,
     prompt_template: str,
     sql_query: Optional[str] = None,
+    enforce_request_limit: bool = True,
+    max_requests: Optional[int] = 10,
     **kwargs,
 ) -> None:
     """Enrich feature layer with AI-generated responses."""
@@ -477,6 +741,10 @@ def add_ai_response_to_feature_layer(
         layer_to_use = out_layer
     else:
         layer_to_use = in_layer
+
+    request_limit = None
+    if enforce_request_limit and max_requests is not None:
+        request_limit = max(0, int(max_requests))
 
     # Add new field for AI responses
     existing_fields = [f.name for f in arcpy.ListFields(layer_to_use)]
@@ -491,26 +759,32 @@ def add_ai_response_to_feature_layer(
         field_name: str,
         prompt_template: str,
         sql_query: Optional[str] = None,
-    ) -> None:
+    ) -> Dict[str, Any]:
         """Generate AI responses for features and update the field."""
         desc = arcpy.Describe(feature_class)
         oid_field_name = desc.OIDFieldName
         fields = [field.name for field in arcpy.ListFields(feature_class)]
 
         # Store prompts and their corresponding OIDs
-        prompts_dict = {}
+        prompts_dict: Dict[int, str] = {}
+        limit_applied = False
+        total_features = 0
         with arcpy.da.SearchCursor(feature_class, fields[:-1], sql_query) as cursor:
             for row in cursor:
+                total_features += 1
+                if request_limit is not None and len(prompts_dict) >= request_limit:
+                    limit_applied = True
+                    continue
                 row_dict = {field: value for field, value in zip(fields[:-1], row)}
                 formatted_prompt = prompt_template.format(**row_dict)
                 oid = row_dict[oid_field_name]
                 prompts_dict[oid] = formatted_prompt
 
-        if prompts_dict:
-            sample_oid, sample_prompt = next(iter(prompts_dict.items()))
-            arcpy.AddMessage(f"{oid_field_name} {sample_oid}: {sample_prompt}")
-        else:
-            arcpy.AddMessage("prompts_dict is empty.")
+        # if prompts_dict:
+        #     sample_oid, sample_prompt = next(iter(prompts_dict.items()))
+        #     arcpy.AddMessage(f"{oid_field_name} {sample_oid}: {sample_prompt}")
+        # else:
+        #     arcpy.AddMessage("prompts_dict is empty.")
 
         # Get AI responses
         client = get_client(source, api_key, **kwargs)
@@ -529,15 +803,22 @@ def add_ai_response_to_feature_layer(
                 responses_dict[oid] = client.get_completion(messages)
 
         # Update feature class with responses
-        with arcpy.da.UpdateCursor(
-            feature_class, [oid_field_name, field_name]
-        ) as cursor:
+        with arcpy.da.UpdateCursor(feature_class, [oid_field_name, field_name]) as cursor:
             for row in cursor:
                 oid = row[0]
                 if oid in responses_dict:
                     row[1] = responses_dict[oid]
-                    cursor.updateRow(row)
+                else:
+                    row[1] = None
+                cursor.updateRow(row)
 
-    generate_ai_responses_for_feature_class(
+        processed = len(responses_dict)
+        return {
+            "processed_features": processed,
+            "limit_applied": bool(request_limit is not None and limit_applied),
+            "total_features": total_features,
+        }
+
+    return generate_ai_responses_for_feature_class(
         source, layer_to_use, field_name, prompt_template, sql_query
     )

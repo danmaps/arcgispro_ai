@@ -4,81 +4,106 @@
 <meta charset="utf-8">
 <title>ArcGIS Pro AI Toolbox</title>
 <link rel="icon" href="favicon.ico" type="image/x-icon">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
 <link rel="stylesheet" href="style.css">
-<script src="navigation.js"></script>
 </head>
-<body>
-<header>
-  <img src="logo_transparent.png" alt="logo">
-  <h1>Your GIS, now AI-supercharged</h1>
-</header>
+<body data-theme="dark" data-disable-splash="true">
+<canvas id="home-splash" aria-hidden="true"></canvas>
+<nav class="container">
+  <ul>
+    <li><strong><code>ArcGIS Pro AI Toolbox</code></strong></li>
+  </ul>
+  <ul>
+    <li><a href="https://github.com/danmaps/arcgispro_ai" class="secondary">View Source</a></li> 
+  </ul>
+</nav>
+<main class="container">
+  <section>
+    <h1>Build expressive, context-aware AI workflows inside ArcGIS Pro.</h1>
+    <p>Download the lightweight Python toolbox and start blending map context, data, and intent with AI&mdash;no installs, no friction.</p>
+    <p>
+      <a href="https://github.com/danmaps/arcgispro_ai/releases/latest/download/arcgispro_ai.pyt" role="button">Download .pyt</a>
+      <a href="https://github.com/danmaps/arcgispro_ai" class="secondary" role="button">View on GitHub</a>
+    </p>
+    <p>Open source, free to use, and runs locally inside ArcGIS Pro. You bring your own API key so your data only goes where you send it.</p>
+  </section>
 
-<div class="hero">
-  <h1>ArcGIS Pro AI Toolbox</h1>
-  <h2>Just download the Python toolbox and start using AI in ArcGIS Pro—no install process, no fuss.</h2>
-  <a href="https://github.com/danmaps/arcgispro_ai/releases/latest/download/arcgispro_ai.pyt" class="cta" download>Download .pyt Toolbox</a>
-  <details class="api-key-details">
-    <summary>How do I get an OpenAI API key?</summary>
+  <section>
+    <h2>Tools</h2>
+    <div class="grid-cards">
+      <article>
+        <h3><a href="tools/FeatureLayer.html">Create AI Feature Layer</a></h3>
+        <p>Describe a layer and let the toolbox generate synthetic features for testing, demos, or brainstorming.</p>
+        <p><small>Model-agnostic&mdash;bring whichever endpoint fits your costs or speed.</small></p>
+      </article>
+      <article>
+        <h3><a href="tools/Field.html">Add AI-Generated Field</a></h3>
+        <p>Populate a new attribute column with AI text that respects the context of your map and layers.</p>
+        <p><small>It feels like &quot;calculate field&quot;, but with a model doing the drafting.</small></p>
+      </article>
+      <article>
+        <h3><a href="tools/GetMapInfo.html">Get Map Info</a></h3>
+        <p>Export the items, layers, and structure of your map to JSON so AI runs can see what you are working on.</p>
+        <p><small>Great for capturing context before you leave ArcGIS Pro.</small></p>
+      </article>
+      <article>
+        <h3><a href="tools/InterpretMap.html">Interpret Map</a></h3>
+        <p>Capture a screenshot and send it to a multimodal model for a quick written overview.</p>
+        <p><small>Useful when you need a second set of eyes on the cartography.</small></p>
+      </article>
+      <article>
+        <h3><a href="tools/Python.html">Generate Python Code</a></h3>
+        <p>Ask for arcpy snippets tailored to your current map and layer selection.</p>
+        <p><small>Helpful for automating repetitive steps or drafting new workflows.</small></p>
+      </article>
+      <article>
+        <h3><a href="tools/ConvertTextToNumeric.html">Convert Text to Numeric</a></h3>
+        <p>Turn messy AI-generated strings into numeric fields you can symbolize or analyze.</p>
+        <p><small>&quot;Seventy five&quot; &rarr; 75, without manual cleanup.</small></p>
+      </article>
+      <article>
+        <h3><a href="tools/GenerateTool.html">Generate Tool</a></h3>
+        <p>Transform prompts or scripts into a packaged .pyt tool with parameters and docs.</p>
+        <p><small>Perfect for sharing repeatable workflows with your team.</small></p>
+      </article>
+    </div>
+  </section>
+
+  <section>
+    <h2>FAQ</h2>
+    <details>
+      <summary>Who made this?</summary>
+      <p>This toolbox was built by a GIS analyst who likes building things. I'm a former Esri employee and long-time ArcGIS Pro user, so the focus is on practical tools that respect how GIS teams really work.</p>
+    </details>
+    <details>
+      <summary>Why isn't this a product?</summary>
+      <p>Because open source is better for this stage. Anyone can inspect, adapt, or deploy it without waiting for pricing tiers or approvals.</p>
+    </details>
+    <details>
+      <summary>Is AI actually right for GIS work?</summary>
+      <p>It can be, if you use it thoughtfully. GIS work already requires verification and judgment&mdash;AI just drops friction and drafts ideas faster.</p>
+    </details>
+    <details>
+      <summary>Is AI going to take my GIS job?</summary>
+      <p>No. AI changes the pace, not the need for critical thinking. This toolbox assumes analysts are thinking professionals, not button-pushers.</p>
+    </details>
+  </section>
+
+  <section>
+    <h2>Install</h2>
     <ol>
-      <li>Create an OpenAI account at <a href="https://platform.openai.com/" target="_blank">platform.openai.com</a></li>
-      <li>In your OpenAI API account, navigate to <a href="https://platform.openai.com/account/billing/overview" target="_blank"><strong>Settings &gt; Billing</strong></a></li>
-      <li>Click <strong>Add to credit balance</strong></li>
-      <li>Add at least <strong>$5</strong> to your account</li>
-      <li>Navigate to <a href="https://platform.openai.com/api-keys" target="_blank">API Keys</a></li>
-      <li>Click <strong>Create new secret key</strong></li>
-      <li>Copy the key to your clipboard</li>
-      <li>Use <code>setx</code> to store the API key on your machine:<br>
-        <code>setx OPENAI_API_KEY "your-key-here"</code>
+      <li>Download the latest <code>.pyt</code> file.</li>
+      <li>Add the toolbox to ArcGIS Pro like any other custom tool.</li>
+      <li>Store your OpenRouter API key so the toolbox can read it:
+        <pre><code>setx OPENROUTER_API_KEY "your-openrouter-key"</code></pre>
       </li>
     </ol>
-    <h4>Checking Usage & Cost</h4>
-    <ul>
-      <li>To check your usage, visit <a href="https://platform.openai.com/usage" target="_blank">platform.openai.com/usage</a>.</li>
-      <li>In my experience, using the mini models gives good results and each run typically costs less than <strong>$0.02</strong>.</li>
-    </ul>
-  </details>
-</div>
+  </section>
 
-<section id="features">
-  <h3>The Tools</h3>
-  <table style="width:90%; margin: 2rem auto;">
-    <tbody>
-      <tr>
-        <td><a href="tools/FeatureLayer.html">Create AI Feature Layer</a></td>
-        <td>Generate a new feature layer based on your prompt.</td>
-        <td>It's hit and miss, but also a ton of fun. <a href="https://danny-typeanythingmap.web.val.run/" target="_blank">Live web based demo</a></td>
-      </tr>
-      <tr>
-        <td><a href="tools/Field.html">Add AI-Generated Field</a></td>
-        <td>Add a new attribute field with text generated by AI.</td>
-        <td>It's the AI version of "calculate field".</td>
-      </tr>
-      <tr>
-        <td><a href="tools/GetMapInfo.html">Get Map Info</a></td>
-        <td>Export map metadata to JSON for use in AI workflows.</td>
-        <td>This one is a utility for taking your context on the go. No more reminding ChatGPT what your layers are like...</td>
-      </tr>
-      <tr>
-        <td><a href="tools/Python.html">Generate Python Code</a></td>
-        <td>Create arcpy code snippets tailored to your map and task.</td>
-        <td>Very powerful. My personal favorite. 🤓 I've spent the most time testing this one.</td>
-      </tr>
-      <tr>
-        <td><a href="tools/ConvertTextToNumeric.html">Convert Text to Numeric</a></td>
-        <td>Clean, parsing of text fields into numeric values.</td>
-        <td>Solves a common problem with AI-generated fields. Think "seventy five" ➡️ 75.</td>
-      </tr>
-    </tbody>
-  </table>
-</section>
-
-<section id="docs">
-  <p><a href="https://github.com/danmaps/arcgispro_ai">View source</a> </p>
-</section>
-
-<footer>
-  © 2025 <a href="https://danmaps.github.io/" target="_blank" style="color:inherit;text-decoration:underline;">Danny McVey</a> · Made with ☕ in California
-</footer>
+  <footer>
+    <small>Open source &bull; Free to use &bull; Bring your own API key</small>
+  </footer>
+</main>
+<script src="home-splash.js"></script>
 </body>
 </html>
