@@ -5,6 +5,7 @@ import arcpy
 import json
 import os
 import tempfile
+import html
 import re
 from typing import Dict, List, Union, Optional, Any, Tuple
 
@@ -14,7 +15,21 @@ try:
 except AttributeError:
     ArcGISMapType = Any
 
-from .core.api_clients import get_client, GeoJSONUtils, parse_numeric_value, get_env_var
+from .core.api_clients import (
+    get_client,
+    GeoJSONUtils,
+    parse_numeric_value,
+    get_env_var,
+    OpenAIClient,
+    OpenRouterClient,
+)
+from .core.model_registry import (
+    DEFAULT_OPENROUTER_MODELS,
+    VISION_MODEL_HINTS,
+    model_supports_images as _registry_model_supports_images,
+)
+
+## Model registry is now in core/model_registry.py
 
 
 class MapUtils:
@@ -251,7 +266,7 @@ class FeatureLayerUtils:
 
     @staticmethod
     def capture_visible_layer_context(
-        active_map: ArcGISMapType,
+        active_map: Any,
         view_extent: Optional[arcpy.Extent],
         max_features_per_layer: int = 50,
     ) -> List[Dict[str, Any]]:
@@ -723,6 +738,193 @@ def capture_interpretation_context(max_features_per_layer: int = 50) -> Dict[str
     }
 
 
+def get_interpretation_instructions() -> str:
+    """Return tasteful Markdown-forward instructions for Interpret Map.
+
+    The guidance encourages headings, lists, and small tables where they
+    help clarity, without forcing formatting.
+    """
+    return (
+        "You are an ArcGIS Pro expert interpreting the active map view. "
+        "Use the provided context to describe what the map communicates at this scale. "
+        "If an image of the map view is provided, treat it as the source of truth for what is on screen and reference it even if the textual context is sparse or contradictory. "
+        "Keep the response concise and structured with these sections: "
+        "1) Interpretation, "
+        "2) Verified Observations (grounded in the image first (if provided), then GeoJSON-like data), "
+        "3) Interpretation Boundaries (what the current symbology, scale, and representation support or limit), "
+        "4) Confidence Notes, and "
+        "5) One Suggested Next Step. "
+        "Use tasteful Markdown formatting where it enhances clarity: headings for sections, bullet or numbered lists for observations, and a small table only if summarizing items (e.g., layers or key stats) benefits the reader. "
+        "Avoid decorative or excessive formatting. Do not force tables or lists when plain sentences suffice. "
+        "Only describe limitations that are visible or implied by the map itself (e.g., scale, aggregation, symbology choices). "
+        "Do not speculate about unseen data processing, network modeling, or simplification unless there is visual evidence on the map. "
+        "Clearly distinguish between measured data, visual inference, and uncertainty."
+    )
+
+
+def render_markdown_to_html(markdown_text: str) -> str:
+    """Convert common Markdown to HTML with tasteful, minimal styling.
+
+    Supported:
+    - Headings (#, ##, ###)
+    - Unordered lists (-, *, +)
+    - Ordered lists (1., 2., ...)
+    - Tables (pipe syntax with optional header separator)
+    - Inline bold (**text**) and italics (*text* or _text_)
+    - Links [text](https://example)
+    - Fenced code blocks ```
+    """
+    lines = (markdown_text or "").strip().splitlines()
+    html_parts = []
+    in_ul = False
+    in_ol = False
+    table_buffer = []
+    in_code = False
+    code_lines = []
+
+    def close_ul():
+        nonlocal in_ul
+        if in_ul:
+            html_parts.append("</ul>")
+            in_ul = False
+
+    def close_ol():
+        nonlocal in_ol
+        if in_ol:
+            html_parts.append("</ol>")
+            in_ol = False
+
+    def flush_table():
+        nonlocal table_buffer
+        if not table_buffer:
+            return
+        # Parse table rows
+        rows = []
+        for row in table_buffer:
+            # Skip alignment/separator lines
+            if re.fullmatch(r"\s*:?\-+:?\s*(\|\s*:?\-+:?\s*)+", row.strip()):
+                rows.append("__SEPARATOR__")
+                continue
+            parts = [p.strip() for p in row.strip().split("|")]
+            # Drop empty first/last due to leading/trailing pipes
+            if parts and parts[0] == "":
+                parts = parts[1:]
+            if parts and parts[-1] == "":
+                parts = parts[:-1]
+            rows.append(parts)
+
+        has_header = False
+        body_rows = []
+        header_cells = []
+        if rows:
+            if len(rows) > 1 and rows[1] == "__SEPARATOR__":
+                has_header = True
+                header_cells = rows[0]
+                body_rows = [r for r in rows[2:] if r != "__SEPARATOR__" and r]
+            else:
+                body_rows = [r for r in rows if r != "__SEPARATOR__" and r]
+
+        html_parts.append("<table style='border-collapse:collapse;width:100%;margin:8px 0;'>")
+        if has_header:
+            html_parts.append("<thead><tr>")
+            for c in header_cells:
+                html_parts.append(f"<th style='text-align:left;padding:6px 8px;border:1px solid #d1d5db;'>{format_inline(c)}</th>")
+            html_parts.append("</tr></thead>")
+        html_parts.append("<tbody>")
+        for r in body_rows:
+            html_parts.append("<tr>")
+            for c in r:
+                html_parts.append(f"<td style='padding:6px 8px;border:1px solid #d1d5db;'>{format_inline(c)}</td>")
+            html_parts.append("</tr>")
+        html_parts.append("</tbody></table>")
+        table_buffer = []
+
+    def close_code():
+        nonlocal in_code, code_lines
+        if in_code:
+            # Preserve whitespace inside code block
+            code_html = html.escape("\n".join(code_lines))
+            html_parts.append(
+                f"<pre style='margin:8px 0;padding:8px;border:1px solid #d1d5db;border-radius:6px;overflow:auto;'><code>{code_html}</code></pre>"
+            )
+            in_code = False
+            code_lines = []
+
+    def format_inline(value: str) -> str:
+        escaped = html.escape(value)
+        # Links
+        escaped = re.sub(r"\[(.*?)\]\((https?://[^\s)]+)\)", r"<a href='\2' target='_blank' rel='noopener noreferrer'>\1</a>", escaped)
+        # Bold then italics
+        escaped = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", escaped)
+        escaped = re.sub(r"(?<!_)_(?!_)(.+?)(?<!_)_(?!_)", r"<em>\1</em>", escaped)
+        escaped = re.sub(r"(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)", r"<em>\1</em>", escaped)
+        return escaped
+
+    for raw_line in lines:
+        line = raw_line.rstrip("\n")
+
+        # Handle fenced code blocks
+        if line.strip().startswith("```"):
+            if in_code:
+                close_code()
+            else:
+                close_ul(); close_ol(); flush_table()
+                in_code = True
+            continue
+
+        if in_code:
+            code_lines.append(line)
+            continue
+
+        if not line.strip():
+            close_ul(); close_ol(); flush_table(); close_code()
+            continue
+
+        # Headings (#, ##, ###)
+        m = re.match(r"^(#{1,6})\s+(.*)$", line)
+        if m:
+            close_ul(); close_ol(); flush_table(); close_code()
+            hashes, text = m.groups()
+            level = min(len(hashes), 3)  # cap at h3 for consistent sizing
+            html_parts.append(
+                f"<h{level} style='margin:16px 0 6px;font-size:{15 if level==3 else (17 if level==2 else 19)}px;'>{format_inline(text.strip())}</h{level}>"
+            )
+            continue
+
+        # Tables (pipe syntax) — accumulate contiguous lines containing '|'
+        if '|' in line:
+            table_buffer.append(line)
+            continue
+
+        # Ordered list
+        if re.match(r"^\s*\d+\.\s+", line):
+            close_ul(); flush_table()
+            if not in_ol:
+                html_parts.append("<ol style='margin:6px 0 12px 18px; padding:0;'>")
+                in_ol = True
+            item = re.sub(r"^\s*\d+\.\s+", "", line)
+            html_parts.append(f"<li style='margin-bottom:4px;'>{format_inline(item.strip())}</li>")
+            continue
+
+        # Unordered list
+        if re.match(r"^\s*([\-\*\+])\s+", line):
+            close_ol(); flush_table()
+            if not in_ul:
+                html_parts.append("<ul style='margin:6px 0 12px 18px; padding:0;'>")
+                in_ul = True
+            item = re.sub(r"^\s*([\-\*\+])\s+", "", line)
+            html_parts.append(f"<li style='margin-bottom:4px;'>{format_inline(item.strip())}</li>")
+            continue
+
+        # Paragraph
+        close_ul(); close_ol(); flush_table()
+        html_parts.append(f"<p style='margin:6px 0 12px;'>{format_inline(line.strip())}</p>")
+
+    # Final cleanup
+    close_ul(); close_ol(); flush_table(); close_code()
+    return "".join(html_parts)
+
+
 def add_ai_response_to_feature_layer(
     api_key: str,
     source: str,
@@ -822,3 +1024,137 @@ def add_ai_response_to_feature_layer(
     return generate_ai_responses_for_feature_class(
         source, layer_to_use, field_name, prompt_template, sql_query
     )
+
+
+# ----------------------------
+# Toolbox helper functions
+# ----------------------------
+
+def get_feature_count_value(layer: str, sql_query: Optional[str] = None) -> int:
+    """Return the count of features for the provided layer and SQL query.
+
+    Safe wrapper that returns -1 on failure instead of throwing, to preserve
+    the toolbox UX flow.
+    """
+    temp_layer = None
+    try:
+        count_target = layer
+        if sql_query:
+            temp_name = f"budget_count_{os.urandom(4).hex()}"
+            temp_layer = arcpy.management.MakeFeatureLayer(layer, temp_name, sql_query).getOutput(0)
+            count_target = temp_layer
+        return int(arcpy.management.GetCount(count_target).getOutput(0))
+    except Exception:
+        return -1
+    finally:
+        if temp_layer:
+            try:
+                arcpy.management.Delete(temp_layer)
+            except Exception:
+                pass
+
+
+def resolve_api_key(source: str, api_key_map: dict, tool_slug: str) -> str:
+    """Fetch the API key for a provider, prompting the user if it is missing."""
+    env_var = api_key_map.get(source, "OPENROUTER_API_KEY")
+    if env_var:
+        api_key = get_env_var(env_var)
+        if not api_key:
+            arcpy.AddError(
+                f"No API key found for {source}. Try `setx {env_var} \"your-key\"` and restart ArcGIS Pro."
+            )
+            # add_tool_doc_link is toolbox-local; keep message self-contained here
+            raise ValueError(f"Missing API key for {source}")
+        return api_key
+    return ""
+
+
+def update_model_parameters(source: str, parameters: list, current_model: Optional[str] = None) -> None:
+    """Update model-related UI parameters based on selected provider.
+
+    parameters layout: [source, model, endpoint, deployment, ...]
+    """
+    model_configs = {
+        "Azure OpenAI": {
+            "models": ["gpt-4", "gpt-4-turbo-preview", "gpt-3.5-turbo"],
+            "default": "gpt-4o-mini",
+            "endpoint": True,
+            "deployment": True,
+        },
+        "OpenAI": {
+            "models": [],  # populated dynamically
+            "default": "gpt-4o-mini",
+            "endpoint": False,
+            "deployment": False,
+        },
+        "OpenRouter": {
+            "models": [],  # populated dynamically
+            "default": "openai/gpt-4o-mini",
+            "endpoint": False,
+            "deployment": False,
+        },
+        "Claude": {
+            "models": ["claude-3-opus-20240229", "claude-3-sonnet-20240229"],
+            "default": "claude-3-opus-20240229",
+            "endpoint": False,
+            "deployment": False,
+        },
+        "DeepSeek": {
+            "models": ["deepseek-chat", "deepseek-coder"],
+            "default": "deepseek-chat",
+            "endpoint": False,
+            "deployment": False,
+        },
+        "Local LLM": {
+            "models": [],
+            "default": None,
+            "endpoint": True,
+            "deployment": False,
+            "endpoint_value": "http://localhost:8000",
+        },
+    }
+
+    config = model_configs.get(source, {})
+    if not config:
+        return
+
+    # If OpenAI or OpenRouter is selected, fetch available models dynamically
+    if source == "OpenAI":
+        try:
+            api_key = get_env_var("OPENAI_API_KEY")
+            if not api_key:
+                raise ValueError("Missing OPENAI_API_KEY")
+            client = OpenAIClient(api_key)
+            config["models"] = client.get_available_models()
+        except Exception:
+            config["models"] = ["gpt-4o-mini", "gpt-3.5-turbo", "gpt-4", "gpt-4-turbo-preview"]
+    elif source == "OpenRouter":
+        try:
+            api_key = get_env_var("OPENROUTER_API_KEY")
+            if not api_key:
+                raise ValueError("Missing OPENROUTER_API_KEY")
+            client = OpenRouterClient(api_key)
+            config["models"] = client.get_available_models()
+        except Exception:
+            config["models"] = DEFAULT_OPENROUTER_MODELS
+
+    # Model parameter
+    parameters[1].enabled = bool(config["models"])
+    if config["models"]:
+        parameters[1].filter.type = "ValueList"
+        parameters[1].filter.list = config["models"]
+        if not current_model or current_model not in config["models"]:
+            parameters[1].value = config["default"]
+
+    # Endpoint parameter
+    parameters[2].enabled = config["endpoint"]
+    if config.get("endpoint_value"):
+        parameters[2].value = config["endpoint_value"]
+
+    # Deployment parameter
+    parameters[3].enabled = config["deployment"]
+
+
+def model_supports_images(source: str, model: Optional[str] = None) -> bool:
+    """Compatibility shim: delegate to core.model_registry.model_supports_images."""
+    return _registry_model_supports_images(source, model)

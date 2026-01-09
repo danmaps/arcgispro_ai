@@ -10,39 +10,17 @@ from arcgispro_ai.arcgispro_ai_utils import (
     generate_python,
     add_ai_response_to_feature_layer,
     map_to_json,
-    capture_interpretation_context
+    capture_interpretation_context,
+    render_markdown_to_html,
+    get_interpretation_instructions,
+    get_feature_count_value,
+    resolve_api_key,
+    update_model_parameters,
+    model_supports_images,
 )
-from arcgispro_ai.core.api_clients import (
-    get_client,
-    get_env_var,
-    OpenAIClient,
-    OpenRouterClient
-)
+from arcgispro_ai.core.api_clients import get_client, get_env_var
 
 TOOL_DOC_BASE_URL = "https://danmaps.github.io/arcgispro_ai/tools"
-DEFAULT_OPENROUTER_MODELS = [
-    "openai/gpt-4o-mini",
-    "openai/o3-mini",
-    "google/gemini-2.0-flash-exp:free",
-    "anthropic/claude-3.5-sonnet",
-    "deepseek/deepseek-chat"
-]
-
-# Known multimodal model markers per provider. The match is case-insensitive and
-# only used to guard tools that attempt to send screenshots.
-VISION_MODEL_HINTS = {
-    "OpenAI": ["gpt-4o", "gpt-4.1", "omni", "vision"],
-    "Azure OpenAI": ["gpt-4o", "gpt-4.1", "omni", "vision"],
-    "OpenRouter": [
-        "openai/gpt-4o",
-        "openai/gpt-4o-mini",
-        "openai/gpt-4.1",
-        "google/gemini",
-        "anthropic/claude-3.5",
-        "anthropic/claude-3-opus",
-        "meta-llama/llama-3.2-vision",
-    ],
-}
 
 def get_tool_doc_url(tool_slug: str) -> str:
     """Return the documentation URL for a tool."""
@@ -53,186 +31,6 @@ def add_tool_doc_link(tool_slug: str) -> None:
     arcpy.AddMessage(f"For troubleshooting tips, visit {get_tool_doc_url(tool_slug)}")
 
 
-def render_markdown_to_html(markdown_text: str) -> str:
-    """Convert a limited subset of markdown to styled HTML."""
-    lines = (markdown_text or "").strip().splitlines()
-    html_parts = []
-    in_list = False
-
-    def close_list():
-        nonlocal in_list
-        if in_list:
-            html_parts.append("</ul>")
-            in_list = False
-
-    def format_inline(value: str) -> str:
-        escaped = html.escape(value)
-        return re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", escaped)
-
-    for raw_line in lines:
-        line = raw_line.rstrip()
-        if not line.strip():
-            close_list()
-            continue
-        if line.startswith("###"):
-            close_list()
-            heading_text = line.lstrip("#").strip()
-            html_parts.append(
-                f"<h3 style='margin:16px 0 6px;font-size:15px;color:#0f172a;'>{format_inline(heading_text)}</h3>"
-            )
-        elif line.lstrip().startswith("- "):
-            if not in_list:
-                html_parts.append("<ul style='margin:6px 0 12px 18px; padding:0;'>")
-                in_list = True
-            bullet = line.lstrip()[2:].strip()
-            html_parts.append(
-                f"<li style='margin-bottom:4px;color:#1f2937;'>{format_inline(bullet)}</li>"
-            )
-        else:
-            close_list()
-            html_parts.append(
-                f"<p style='margin:6px 0 12px;color:#111827;'>{format_inline(line.strip())}</p>"
-            )
-    close_list()
-    return "".join(html_parts)
-
-
-def get_feature_count_value(layer: str, sql_query: str = None) -> int:
-    """Return the count of features for the provided layer and SQL query."""
-    temp_layer = None
-    try:
-        count_target = layer
-        if sql_query:
-            temp_name = f"budget_count_{os.urandom(4).hex()}"
-            temp_layer = arcpy.management.MakeFeatureLayer(layer, temp_name, sql_query).getOutput(0)
-            count_target = temp_layer
-        return int(arcpy.management.GetCount(count_target).getOutput(0))
-    except Exception:
-        return -1
-    finally:
-        if temp_layer:
-            try:
-                arcpy.management.Delete(temp_layer)
-            except Exception:
-                pass
-
-def resolve_api_key(source: str, api_key_map: dict, tool_slug: str) -> str:
-    """Fetch the API key for a provider, prompting the user if it is missing."""
-    env_var = api_key_map.get(source, "OPENROUTER_API_KEY")
-    if env_var:
-        api_key = get_env_var(env_var)
-        if not api_key:
-            arcpy.AddError(
-                f"No API key found for {source}. Try `setx {env_var} \"your-key\"` and restart ArcGIS Pro."
-            )
-            add_tool_doc_link(tool_slug)
-            raise ValueError(f"Missing API key for {source}")
-        return api_key
-    return ""
-
-def update_model_parameters(source: str, parameters: list, current_model: str = None) -> None:
-    """Update model parameters based on the selected source.
-    
-    Args:
-        source: The selected AI source (e.g., 'OpenAI', 'Azure OpenAI', etc.)
-        parameters: List of arcpy.Parameter objects [source, model, endpoint, deployment]
-        current_model: Currently selected model, if any
-    """
-    model_configs = {
-        "Azure OpenAI": {
-            "models": ["gpt-4", "gpt-4-turbo-preview", "gpt-3.5-turbo"],
-            "default": "gpt-4o-mini",
-            "endpoint": True,
-            "deployment": True
-        },
-        "OpenAI": {
-            "models": [],  # Will be populated dynamically
-            "default": "gpt-4o-mini",
-            "endpoint": False,
-            "deployment": False
-        },
-        "OpenRouter": {
-            "models": [],  # Will be populated dynamically
-            "default": "openai/gpt-4o-mini",
-            "endpoint": False,
-            "deployment": False
-        },
-        "Claude": {
-            "models": ["claude-3-opus-20240229", "claude-3-sonnet-20240229"],
-            "default": "claude-3-opus-20240229",
-            "endpoint": False,
-            "deployment": False
-        },
-        "DeepSeek": {
-            "models": ["deepseek-chat", "deepseek-coder"],
-            "default": "deepseek-chat",
-            "endpoint": False,
-            "deployment": False
-        },
-        "Local LLM": {
-            "models": [],
-            "default": None,
-            "endpoint": True,
-            "deployment": False,
-            "endpoint_value": "http://localhost:8000"
-        }
-    }
-
-    config = model_configs.get(source, {})
-    if not config:
-        return
-
-    # If OpenAI or OpenRouter is selected, fetch available models dynamically
-    if source == "OpenAI":
-        try:
-            api_key = get_env_var("OPENAI_API_KEY")
-            if not api_key:
-                raise ValueError("Missing OPENAI_API_KEY")
-            client = OpenAIClient(api_key)
-            config["models"] = client.get_available_models()
-            
-        except Exception:
-            # If fetching fails, use default hardcoded models
-            config["models"] = ["gpt-4o-mini", "gpt-3.5-turbo", "gpt-4", "gpt-4-turbo-preview"]
-    elif source == "OpenRouter":
-        try:
-            api_key = get_env_var("OPENROUTER_API_KEY")
-            if not api_key:
-                raise ValueError("Missing OPENROUTER_API_KEY")
-            client = OpenRouterClient(api_key)
-            config["models"] = client.get_available_models()
-        except Exception:
-            config["models"] = DEFAULT_OPENROUTER_MODELS
-
-    # Model parameter
-    parameters[1].enabled = bool(config["models"])
-    if config["models"]:
-        parameters[1].filter.type = "ValueList"
-        parameters[1].filter.list = config["models"]
-        if not current_model or current_model not in config["models"]:
-            parameters[1].value = config["default"]
-
-    # Endpoint parameter
-    parameters[2].enabled = config["endpoint"]
-    if config.get("endpoint_value"):
-        parameters[2].value = config["endpoint_value"]
-
-    # Deployment parameter
-    parameters[3].enabled = config["deployment"]
-
-
-def model_supports_images(source: str, model: str = None) -> bool:
-    """Return True if the selected model is known to accept image input."""
-    provider_hints = VISION_MODEL_HINTS.get(source, [])
-    normalized = (model or "").lower().strip() if model else ""
-
-    if not provider_hints:
-        return False
-    if not normalized:
-        # Fall back to provider defaults if the user did not specify a model name.
-        return source in ("OpenAI", "Azure OpenAI")
-
-    return any(hint in normalized for hint in provider_hints)
 
 class Toolbox:
     def __init__(self):
@@ -869,20 +667,7 @@ class InterpretMap(object):
         textual_context = dict(context)
         textual_context.pop("screenshot", None)
 
-        interpretation_instructions = (
-            "You are an ArcGIS Pro expert interpreting the active map view. "
-            "Use the provided context to describe what the map communicates at this scale. "
-            "If an image of the map view is provided, treat it as the source of truth for what is on screen and reference it even if the textual context is sparse or contradictory. "
-            "Keep the response concise and structured with these sections: "
-            "1) Interpretation, "
-            "2) Verified Observations (grounded in the image first (if provided), then GeoJSON-like data), "
-            "3) Interpretation Boundaries (what the current symbology, scale, and representation support or limit), "
-            "4) Confidence Notes, and "
-            "5) One Suggested Next Step. "
-            "Only describe limitations that are visible or implied by the map itself (e.g., scale, aggregation, symbology choices). "
-            "Do not speculate about unseen data processing, network modeling, or simplification unless there is visual evidence on the map. "
-            "Clearly distinguish between measured data, visual inference, and uncertainty."
-        )
+        interpretation_instructions = get_interpretation_instructions()
 
 
         user_prompt = (
@@ -932,8 +717,8 @@ class InterpretMap(object):
                 html_sections.extend(
                     [
                         "<div style='margin-top:18px;'>",
-                        "<div style='font-weight:600;color:#0f172a;margin-bottom:6px;'>"
-                        f"Map screenshot preview <span style='font-weight:400;color:#475569;'>({size_label})</span>"
+                        "<div style='font-weight:600;margin-bottom:6px;'>"
+                        f"Map screenshot preview <span style='font-weight:400;'>({size_label})</span>"
                         "</div>",
                         "<div>",
                         f"<img src='data:image/png;base64,{screenshot_info['base64']}' "
@@ -1060,9 +845,19 @@ class Python(object):
         # combine map and layer data into one JSON
         # only do this if context is empty
         if not parameters[6].valueAsText or parameters[6].valueAsText.strip() == "":
+            try:
+                map_data = map_to_json()
+            except Exception as e:
+                map_data = {"error": f"Unable to access map: {str(e)}"}
+            
+            try:
+                layers_data = FeatureLayerUtils.get_layer_info(layers) if layers else []
+            except Exception as e:
+                layers_data = {"error": f"Unable to access layers: {str(e)}"}
+            
             context_json = {
-                "map": map_to_json(), 
-                "layers": FeatureLayerUtils.get_layer_info(layers)
+                "map": map_data, 
+                "layers": layers_data
             }
             parameters[6].value = json.dumps(context_json, indent=2)
         return
@@ -1108,9 +903,19 @@ class Python(object):
 
         # If derived_context is None, create a default context
         if derived_context is None:
+            try:
+                map_data = map_to_json()
+            except Exception as e:
+                map_data = {"error": f"Unable to access map: {str(e)}"}
+            
+            try:
+                layers_data = FeatureLayerUtils.get_layer_info(layers) if layers else []
+            except Exception as e:
+                layers_data = {"error": f"Unable to access layers: {str(e)}"}
+            
             context_json = {
-                "map": map_to_json(), 
-                "layers": FeatureLayerUtils.get_layer_info(layers) if layers else []
+                "map": map_data, 
+                "layers": layers_data
             }
         else:
             context_json = json.loads(derived_context)

@@ -159,6 +159,63 @@ See `build_monolithic_pyt.py` for details on how the monolithic `.pyt` is built.
 
 ---
 
+## Project Layout
+
+The codebase is organized to keep Esri toolbox glue minimal while centralizing reusable logic:
+
+```text
+arcgispro_ai/
+├─ toolboxes/
+│  ├─ arcgispro_ai_tools.pyt        # Esri Python Toolbox (UI, params, execute orchestration)
+│  └─ arcgispro_ai/
+│     └─ arcgispro_ai_utils.py      # Shared utilities and helpers used by tools
+├─ core/
+│  └─ api_clients.py                # Provider abstraction + client factory (`get_client`)
+├─ docs/                            # Static docs site content
+├─ build_monolithic_pyt.py          # Builds single-file .pyt for distribution
+├─ arcgispro_ai.pyt                 # Generated monolithic toolbox (checked in for convenience)
+└─ README.md
+```
+
+### Separation of Concerns (Toolbox vs. Logic)
+
+- Toolbox file focuses on: parameter definitions, validation messages, and high-level `execute()` orchestration.
+- Implementation details live in utilities and core modules to keep the `.pyt` readable and maintainable.
+- Examples of logic moved out of the toolbox into utilities:
+  - Map context capture and screenshot handling
+  - Interpretation instructions (system prompt) for the AI
+  - Markdown → HTML rendering for rich, theme-friendly output
+  - Feature counting, API key resolution, model parameter wiring, and vision capability checks
+
+Key modules:
+
+- Utilities: `arcgispro_ai/toolboxes/arcgispro_ai/arcgispro_ai_utils.py`
+  - `get_interpretation_instructions()` – central system prompt for Interpret Map
+  - `render_markdown_to_html()` – tasteful Markdown renderer (headings, lists, tables, code, links) with minimal, theme-inheriting styles
+  - `get_feature_count_value()`, `resolve_api_key()`, `update_model_parameters()`, `model_supports_images()`
+  - Map and layer helpers used across tools
+- Provider abstraction: `arcgispro_ai/core/api_clients.py`
+  - `get_client(source, api_key, **kwargs)` – returns the right provider client (OpenRouter, OpenAI, Azure OpenAI, Anthropic/Claude, DeepSeek, local)
+
+### Providers, Models, and Environment Variables
+
+- Environment variables: configure the provider(s) you use
+  - `OPENROUTER_API_KEY`, `OPENAI_API_KEY`, `AZURE_OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `DEEPSEEK_API_KEY`
+- Toolbox UI wiring:
+  - `update_model_parameters()` enables/disables fields (e.g., `endpoint`, `deployment`) and dynamically populates `model` options (OpenRouter catalog supported).
+  - `resolve_api_key()` maps the selected provider to the appropriate environment variable and surfaces helpful errors.
+  - `model_supports_images()` gates use of map screenshots only when a provider/model can accept images.
+- Vision usage:
+  - If enabled and supported, Interpret Map sends both the textual context and a low-detail screenshot to multimodal models.
+
+### Theming and Markdown (Interpret Map)
+
+- Interpret Map responses can include tasteful Markdown (headings, lists, tables, links, fenced code).
+- Output is rendered to HTML via `render_markdown_to_html()` with minimal CSS that inherits ArcGIS Pro’s theme—no hardcoded text colors—so it looks good in both light and dark modes.
+- A screenshot preview (if captured and supported) is shown with neutral borders/shadows that work across themes.
+
+ 
+
 ## Contributing
 
 Make an issue or create a branch for your feature or bug fix, and submit a pull request.

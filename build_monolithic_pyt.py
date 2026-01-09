@@ -6,7 +6,7 @@ from pathlib import Path
 
 # List of allowed imports (standard library + arcpy + commonly available packages)
 ALLOWED_IMPORTS = set([
-    'arcpy', 'os', 'sys', 'json', 're', 'math', 'datetime', 'time', 'random', 'collections', 'itertools', 'functools', 'pathlib', 'shutil', 'logging', 'csv', 'copy', 'ast', 'typing', 'traceback', 'subprocess', 'threading', 'concurrent', 'uuid', 'base64', 'hashlib', 'tempfile', 'glob', 'inspect', 'enum', 'warnings', 'contextlib', 'io', 'zipfile', 'struct', 'platform', 'getpass', 'socket', 'http', 'urllib', 'email', 'pprint', 'argparse', 'dataclasses', 'statistics', 'string', 'types', 'site', 'importlib', 'pkgutil', 'codecs', 'signal', 'weakref', 'array', 'bisect', 'heapq', 'queue', 'resource', 'selectors', 'ssl', 'tarfile', 'xml', 'xml.etree', 'xml.dom', 'xml.sax', 'xml.parsers', 'xmlrpc', 'bz2', 'lzma', 'gzip', 'pickle', 'marshal', 'shelve', 'sqlite3', 'ctypes', 'cProfile', 'pstats', 'doctest', 'unittest', 'venv', 'ensurepip', 'distutils', 'site', 'venv', 'wsgiref', 'uuid', 'zoneinfo', 'faulthandler', 'trace', 'token', 'tokenize', 'symtable', 'tabnanny', 'pyclbr', 'py_compile', 'compileall', 'dis', 'formatter', 'gettext', 'locale', 'mailbox', 'mailcap', 'mimetypes', 'mmap', 'msilib', 'netrc', 'nntplib', 'numbers', 'optparse', 'parser', 'pipes', 'poplib', 'profile', 'pydoc', 'quopri', 'reprlib', 'runpy', 'sched', 'secrets', 'selectors', 'smtpd', 'smtplib', 'sndhdr', 'spwd', 'stat', 'sunau', 'symbol', 'symtable', 'sysconfig', 'tabnanny', 'telnetlib', 'termios', 'test', 'textwrap', 'this', 'tkinter', 'turtle', 'tty', 'turtle', 'unittest', 'uu', 'venv', 'webbrowser', 'xdrlib', 'zipapp', 'zlib', 'zoneinfo', 'requests', 'arcgispro_ai', 'core'
+    'arcpy', 'os', 'sys', 'json', 're', 'math', 'datetime', 'time', 'random', 'collections', 'itertools', 'functools', 'pathlib', 'shutil', 'logging', 'csv', 'copy', 'ast', 'typing', 'traceback', 'subprocess', 'threading', 'concurrent', 'uuid', 'base64', 'hashlib', 'tempfile', 'glob', 'inspect', 'enum', 'warnings', 'contextlib', 'io', 'zipfile', 'struct', 'platform', 'getpass', 'socket', 'http', 'urllib', 'email', 'html', 'pprint', 'argparse', 'dataclasses', 'statistics', 'string', 'types', 'site', 'importlib', 'pkgutil', 'codecs', 'signal', 'weakref', 'array', 'bisect', 'heapq', 'queue', 'resource', 'selectors', 'ssl', 'tarfile', 'xml', 'xml.etree', 'xml.dom', 'xml.sax', 'xml.parsers', 'xmlrpc', 'bz2', 'lzma', 'gzip', 'pickle', 'marshal', 'shelve', 'sqlite3', 'ctypes', 'cProfile', 'pstats', 'doctest', 'unittest', 'venv', 'ensurepip', 'distutils', 'site', 'venv', 'wsgiref', 'uuid', 'zoneinfo', 'faulthandler', 'trace', 'token', 'tokenize', 'symtable', 'tabnanny', 'pyclbr', 'py_compile', 'compileall', 'dis', 'formatter', 'gettext', 'locale', 'mailbox', 'mailcap', 'mimetypes', 'mmap', 'msilib', 'netrc', 'nntplib', 'numbers', 'optparse', 'parser', 'pipes', 'poplib', 'profile', 'pydoc', 'quopri', 'reprlib', 'runpy', 'sched', 'secrets', 'selectors', 'smtpd', 'smtplib', 'sndhdr', 'spwd', 'stat', 'sunau', 'symbol', 'symtable', 'sysconfig', 'tabnanny', 'telnetlib', 'termios', 'test', 'textwrap', 'this', 'tkinter', 'turtle', 'tty', 'turtle', 'unittest', 'uu', 'venv', 'webbrowser', 'xdrlib', 'zipapp', 'zlib', 'zoneinfo', 'requests', 'arcgispro_ai', 'core'
 ])
 
 
@@ -52,6 +52,54 @@ def inline_code(files):
         code_blocks.append(filtered)
     # Join with two newlines to avoid accidental code merging
     return '\n\n'.join(code_blocks)
+
+
+def find_local_imports(source_code, current_file_path, root_dir):
+    """Recursively find all local Python files imported in source code.
+    
+    Returns a set of absolute file paths to local modules that should be inlined.
+    """
+    tree = ast.parse(source_code)
+    local_files = set()
+    current_dir = Path(current_file_path).parent
+    
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and node.module:
+            # Handle imports like: from .core.model_registry import X
+            # or from .api_clients import X
+            module_path = node.module.split('.')
+            
+            # Try relative imports first (from . or from ..)
+            if node.level > 0:
+                search_dir = current_dir
+                for _ in range(node.level - 1):
+                    search_dir = search_dir.parent
+                
+                potential_file = search_dir / f"{module_path[0]}.py"
+                if potential_file.exists() and potential_file.is_file():
+                    local_files.add(potential_file)
+                    # Recursively process this file's imports
+                    try:
+                        with open(potential_file, 'r', encoding='utf-8') as f:
+                            sub_code = f.read()
+                        local_files.update(find_local_imports(sub_code, potential_file, root_dir))
+                    except:
+                        pass
+                    
+                # Also check for submodules (e.g., core/model_registry.py)
+                for i in range(1, len(module_path)):
+                    sub_path = search_dir / "/".join(module_path[:i]) / f"{module_path[i]}.py"
+                    if sub_path.exists() and sub_path.is_file():
+                        local_files.add(sub_path)
+                        # Recursively process this file's imports
+                        try:
+                            with open(sub_path, 'r', encoding='utf-8') as f:
+                                sub_code = f.read()
+                            local_files.update(find_local_imports(sub_code, sub_path, root_dir))
+                        except:
+                            pass
+    
+    return local_files
 
 
 def check_imports(files):
@@ -109,19 +157,39 @@ def main():
     root = Path(__file__).parent
     toolbox_file = root / 'arcgispro_ai' / 'toolboxes' / 'arcgispro_ai_tools.pyt'
     util_dir = root / 'arcgispro_ai' / 'toolboxes' / 'arcgispro_ai'  # Utility code
-    util_files = [
+    
+    # Start with primary utility files
+    primary_util_files = [
         util_dir / 'arcgispro_ai_utils.py',
         util_dir / 'core' / 'api_clients.py'
-    ]  # Add more as needed
-
+    ]
+    
+    # Read and find all local imports recursively
+    all_util_files = set(primary_util_files)
+    for util_file in primary_util_files:
+        if util_file.exists():
+            with open(util_file, 'r', encoding='utf-8') as f:
+                code = f.read()
+            # Recursively find all local imports
+            discovered = find_local_imports(code, util_file, root)
+            all_util_files.update(discovered)
+    
+    # Sort for consistent ordering
+    util_files = sorted(list(all_util_files))
+    
+    print(f"Found {len(util_files)} utility files to inline:")
+    for f in util_files:
+        print(f"  - {f.relative_to(root)}")
+    
     # Check for unsupported imports
     unsupported = check_imports([toolbox_file] + util_files)
     if unsupported:
-        print(f"WARNING: Unsupported imports found: {unsupported}")
+        print(f"\nWARNING: Unsupported imports found: {unsupported}")
     
     # Inline utility code
     util_code = inline_code(util_files)
-      # Read the original toolbox file
+    
+    # Read the original toolbox file
     with open(toolbox_file, 'r', encoding='utf-8') as f:
         toolbox_code = f.read()
     
@@ -133,7 +201,8 @@ def main():
     
     # Replace imports with inlined code
     result = replace_imports_with_inlined_code(toolbox_code, util_code)
-      # Debug: Check if GenerateTool is still in the processed code
+    
+    # Debug: Check if GenerateTool is still in the processed code
     if 'GenerateTool' in result:
         print("✓ GenerateTool preserved after processing")
         # Check if it's in the tools list
@@ -143,7 +212,8 @@ def main():
             print("✗ GenerateTool NOT found in tools list")
     else:
         print("✗ GenerateTool LOST during processing")
-      # Add header comment
+    
+    # Add header comment
     header = '''# -*- coding: utf-8 -*-
 """
 arcgispro_ai.pyt - Monolithic Python Toolbox
@@ -165,7 +235,7 @@ Do not edit directly - regenerate using build_monolithic_pyt.py
     out_file = root / f'arcgispro_ai.pyt'
     with open(out_file, 'w', encoding='utf-8') as f:
         f.write(final_result)
-    print(f"Monolithic .pyt written to {out_file}")
+    print(f"\n✓ Monolithic .pyt written to {out_file}")
 
 if __name__ == '__main__':
     main()
