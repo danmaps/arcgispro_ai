@@ -122,7 +122,7 @@ To use OpenRouter:
    setx OPENROUTER_API_KEY "your-openrouter-key"
    ```
 3. OpenRouter is already selected in every tool—leave the Source dropdown on OpenRouter (or switch back to it) to start using it immediately
-4. The Model dropdown automatically lists the entire OpenRouter catalog (free tiers floated to the top), so just pick the model you want or type its ID manually
+4. The Model dropdown shows a curated set of OpenRouter options; if you need something else, you can type any OpenRouter model ID manually. Refer to the full catalog at https://openrouter.ai/models?fmt=table
 
 ---
 
