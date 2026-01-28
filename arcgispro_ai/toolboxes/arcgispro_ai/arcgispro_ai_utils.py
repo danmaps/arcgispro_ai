@@ -1089,7 +1089,7 @@ def update_model_parameters(source: str, parameters: list, current_model: Option
         },
         "OpenRouter": {
             "models": [],  # populated dynamically
-            "default": "openai/gpt-4o-mini",
+            "default": "openai/gpt-4o",
             "endpoint": False,
             "deployment": False,
         },
@@ -1139,12 +1139,22 @@ def update_model_parameters(source: str, parameters: list, current_model: Option
             config["models"] = DEFAULT_OPENROUTER_MODELS
 
     # Model parameter
-    parameters[1].enabled = bool(config["models"])
+    allow_custom_model = source == "OpenRouter"
+    parameters[1].enabled = bool(config["models"]) or allow_custom_model
     if config["models"]:
-        parameters[1].filter.type = "ValueList"
-        parameters[1].filter.list = config["models"]
-        if not current_model or current_model not in config["models"]:
-            parameters[1].value = config["default"]
+        if allow_custom_model and current_model and current_model not in config["models"]:
+            parameters[1].filter.type = "None"
+            parameters[1].filter.list = []
+            parameters[1].value = current_model
+        else:
+            parameters[1].filter.type = "ValueList"
+            parameters[1].filter.list = config["models"]
+            if not current_model:
+                parameters[1].value = config["default"]
+            elif current_model in config["models"]:
+                parameters[1].value = current_model
+            else:
+                parameters[1].value = config["default"]
 
     # Endpoint parameter
     parameters[2].enabled = config["endpoint"]
