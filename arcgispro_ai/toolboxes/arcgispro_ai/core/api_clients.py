@@ -5,6 +5,8 @@ import os
 import xml.etree.ElementTree as ET
 from typing import Dict, List, Union, Optional, Any
 
+from .model_registry import DEFAULT_OPENROUTER_MODELS
+
 def log_message(message: str):
     """Log message to both console and ArcGIS Pro if available."""
     print(message)  # Always print to console for testing
@@ -202,7 +204,7 @@ class DeepSeekClient(APIClient):
         return response["choices"][0]["message"]["content"].strip()
 
 class OpenRouterClient(APIClient):
-    def __init__(self, api_key: str, model: str = "openai/gpt-4o-mini"):
+    def __init__(self, api_key: str, model: str = "openai/gpt-4o"):
         super().__init__(api_key, "https://openrouter.ai/api/v1")
         self.model = model
         # Add OpenRouter-specific headers
@@ -213,13 +215,7 @@ class OpenRouterClient(APIClient):
 
     def get_available_models(self) -> List[str]:
         """Get list of available models from OpenRouter API."""
-        fallback_models = [
-            "openai/gpt-4o-mini",
-            "openai/o3-mini",
-            "google/gemini-2.0-flash-exp:free",
-            "anthropic/claude-3.5-sonnet",
-            "deepseek/deepseek-chat"
-        ]
+        fallback_models = DEFAULT_OPENROUTER_MODELS
         try:
             response = requests.get(
                 f"{self.base_url}/models",
@@ -229,37 +225,20 @@ class OpenRouterClient(APIClient):
             )
             response.raise_for_status()
             data = response.json().get("data", [])
-            models_with_meta = []
+            available_ids = set()
             for model in data:
                 model_id = model.get("id")
                 if not model_id:
                     continue
-                pricing = model.get("pricing", {})
-                prompt_price = pricing.get("prompt")
-                completion_price = pricing.get("completion")
+                available_ids.add(model_id)
 
-                def _parse_price(value: Any) -> float:
-                    if value in (None, "", "N/A"):
-                        return float("inf")
-                    try:
-                        return float(value)
-                    except (TypeError, ValueError):
-                        return float("inf")
-
-                models_with_meta.append(
-                    (
-                        model_id,
-                        _parse_price(prompt_price),
-                        _parse_price(completion_price)
-                    )
-                )
-
-            if not models_with_meta:
+            if not available_ids:
                 return fallback_models
 
-            # Sort with free models first, then by price, then alphabetically
-            models_with_meta.sort(key=lambda item: (item[1], item[2], item[0]))
-            return [model_id for model_id, _, _ in models_with_meta]
+            curated_available = [
+                model_id for model_id in fallback_models if model_id in available_ids
+            ]
+            return curated_available or fallback_models
         except Exception:
             return fallback_models
 
@@ -392,7 +371,7 @@ def get_client(source: str, api_key: str, **kwargs) -> APIClient:
         ),
         "Claude": lambda: ClaudeClient(api_key, model=kwargs.get('model', 'claude-3-opus-20240229')),
         "DeepSeek": lambda: DeepSeekClient(api_key, model=kwargs.get('model', 'deepseek-chat')),
-        "OpenRouter": lambda: OpenRouterClient(api_key, model=kwargs.get('model', 'openai/gpt-4o-mini')),
+        "OpenRouter": lambda: OpenRouterClient(api_key, model=kwargs.get('model', 'openai/gpt-4o')),
         "Local LLM": lambda: LocalLLMClient(base_url=kwargs.get('base_url', 'http://localhost:8000')),
         "Wolfram Alpha": lambda: WolframAlphaClient(api_key)
     }

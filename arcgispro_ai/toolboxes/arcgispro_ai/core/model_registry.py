@@ -7,23 +7,40 @@ VISION_MODEL_HINTS = {
     "Azure OpenAI": ["gpt-4o", "gpt-4.1", "omni", "vision"],
     "OpenRouter": [
         "openai/gpt-4o",
-        "openai/gpt-4o-mini",
         "openai/gpt-4.1",
-        "google/gemini",
-        "anthropic/claude-3.5",
-        "anthropic/claude-3-opus",
+        "openai/gpt-5",
+        "google/gemini-2.5",
+        "google/gemini-3",
+        "anthropic/claude-4",
+        "anthropic/claude-4.5",
         "meta-llama/llama-3.2-vision",
     ],
 }
 
-# Fallback short list for OpenRouter if dynamic catalog fetch fails
-DEFAULT_OPENROUTER_MODELS = [
-    "openai/gpt-4o-mini",
-    "openai/o3-mini",
-    "google/gemini-2.0-flash-exp:free",
-    "anthropic/claude-3.5-sonnet",
-    "deepseek/deepseek-chat",
+# Curated OpenRouter model list aligned with the Copilot-style picker.
+OPENROUTER_CURATED_MODELS = [
+    "openai/gpt-4.1",
+    "openai/gpt-4o",
+    "openai/gpt-5-mini",
+    "anthropic/claude-4.5-haiku",
+    "anthropic/claude-4.5-opus",
+    "anthropic/claude-4-sonnet",
+    "anthropic/claude-4.5-sonnet",
+    "google/gemini-2.5-pro",
+    "google/gemini-3-flash-preview",
+    "google/gemini-3-pro-preview",
+    "openai/gpt-5",
+    "openai/gpt-5-codex-preview",
+    "openai/gpt-5.1",
+    "openai/gpt-5.1-codex",
+    "openai/gpt-5.1-codex-max",
+    "openai/gpt-5.1-codex-mini-preview",
+    "openai/gpt-5.2",
+    "openai/gpt-5.2-codex",
 ]
+
+# Fallback short list for OpenRouter if dynamic catalog fetch fails
+DEFAULT_OPENROUTER_MODELS = OPENROUTER_CURATED_MODELS
 
 
 def model_supports_images(source: str, model: Optional[str] = None) -> bool:
