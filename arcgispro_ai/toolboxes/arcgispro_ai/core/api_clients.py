@@ -6,6 +6,7 @@ import xml.etree.ElementTree as ET
 from typing import Dict, List, Union, Optional, Any
 
 from .model_registry import DEFAULT_OPENROUTER_MODELS
+from ..providers.github_models import GitHubModelsClient
 
 def log_message(message: str):
     """Log message to both console and ArcGIS Pro if available."""
@@ -372,6 +373,7 @@ def get_client(source: str, api_key: str, **kwargs) -> APIClient:
         "Claude": lambda: ClaudeClient(api_key, model=kwargs.get('model', 'claude-3-opus-20240229')),
         "DeepSeek": lambda: DeepSeekClient(api_key, model=kwargs.get('model', 'deepseek-chat')),
         "OpenRouter": lambda: OpenRouterClient(api_key, model=kwargs.get('model', 'openai/gpt-4o')),
+        "GitHub Models": lambda: GitHubModelsClient(api_key, model=kwargs.get("model", "openai/gpt-4.1")),
         "Local LLM": lambda: LocalLLMClient(base_url=kwargs.get('base_url', 'http://localhost:8000')),
         "Wolfram Alpha": lambda: WolframAlphaClient(api_key)
     }

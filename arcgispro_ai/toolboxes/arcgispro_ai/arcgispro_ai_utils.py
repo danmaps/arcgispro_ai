@@ -15,19 +15,9 @@ try:
 except AttributeError:
     ArcGISMapType = Any
 
-from .core.api_clients import (
-    get_client,
-    GeoJSONUtils,
-    parse_numeric_value,
-    get_env_var,
-    OpenAIClient,
-    OpenRouterClient,
-)
-from .core.model_registry import (
-    DEFAULT_OPENROUTER_MODELS,
-    VISION_MODEL_HINTS,
-    model_supports_images as _registry_model_supports_images,
-)
+from .core.api_clients import get_client, GeoJSONUtils, parse_numeric_value, get_env_var, OpenAIClient, OpenRouterClient, GitHubModelsClient
+from .auth import load_github_models_token
+from .core.model_registry import DEFAULT_GITHUB_MODELS, DEFAULT_OPENROUTER_MODELS, VISION_MODEL_HINTS, model_supports_images as _registry_model_supports_images
 
 ## Model registry is now in core/model_registry.py
 
@@ -1056,6 +1046,13 @@ def get_feature_count_value(layer: str, sql_query: Optional[str] = None) -> int:
 
 def resolve_api_key(source: str, api_key_map: dict, tool_slug: str) -> str:
     """Fetch the API key for a provider, prompting the user if it is missing."""
+    if source == "GitHub Models":
+        try:
+            return load_github_models_token()
+        except ValueError as exc:
+            arcpy.AddError(str(exc))
+            raise
+
     env_var = api_key_map.get(source, "OPENROUTER_API_KEY")
     if env_var:
         api_key = get_env_var(env_var)
@@ -1090,6 +1087,12 @@ def update_model_parameters(source: str, parameters: list, current_model: Option
         "OpenRouter": {
             "models": [],  # populated dynamically
             "default": "openai/gpt-4o",
+            "endpoint": False,
+            "deployment": False,
+        },
+        "GitHub Models": {
+            "models": DEFAULT_GITHUB_MODELS,
+            "default": "openai/gpt-4.1",
             "endpoint": False,
             "deployment": False,
         },
@@ -1137,9 +1140,16 @@ def update_model_parameters(source: str, parameters: list, current_model: Option
             config["models"] = client.get_available_models()
         except Exception:
             config["models"] = DEFAULT_OPENROUTER_MODELS
+    elif source == "GitHub Models":
+        try:
+            token = load_github_models_token()
+            client = GitHubModelsClient(token)
+            config["models"] = client.get_available_models()
+        except Exception:
+            config["models"] = DEFAULT_GITHUB_MODELS
 
     # Model parameter
-    allow_custom_model = source == "OpenRouter"
+    allow_custom_model = source in ("OpenRouter", "GitHub Models")
     parameters[1].enabled = bool(config["models"]) or allow_custom_model
     if config["models"]:
         if allow_custom_model and current_model and current_model not in config["models"]:
