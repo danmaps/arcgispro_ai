@@ -68,7 +68,7 @@ class FeatureLayer(object):
             direction="Input",
         )
         source.filter.type = "ValueList"
-        source.filter.list = ["OpenRouter", "OpenAI", "Azure OpenAI", "Claude", "DeepSeek", "Local LLM"]
+        source.filter.list = ["OpenRouter", "GitHub Models", "OpenAI", "Azure OpenAI", "Claude", "DeepSeek", "Local LLM"]
         source.value = "OpenRouter"
 
         model = arcpy.Parameter(
@@ -163,6 +163,7 @@ class FeatureLayer(object):
             "Claude": "ANTHROPIC_API_KEY",
             "DeepSeek": "DEEPSEEK_API_KEY",
             "OpenRouter": "OPENROUTER_API_KEY",
+            "GitHub Models": None,
             "Local LLM": None
         }
         try:
@@ -212,7 +213,7 @@ class Field(object):
             direction="Input",
         )
         source.filter.type = "ValueList"
-        source.filter.list = ["OpenRouter", "OpenAI", "Azure OpenAI", "Claude", "DeepSeek", "Local LLM", "Wolfram Alpha"]
+        source.filter.list = ["OpenRouter", "GitHub Models", "OpenAI", "Azure OpenAI", "Claude", "DeepSeek", "Local LLM", "Wolfram Alpha"]
         source.value = "OpenRouter"
 
         model = arcpy.Parameter(
@@ -377,6 +378,7 @@ class Field(object):
             "Claude": "ANTHROPIC_API_KEY",
             "DeepSeek": "DEEPSEEK_API_KEY",
             "OpenRouter": "OPENROUTER_API_KEY",
+            "GitHub Models": None,
             "Local LLM": None,
             "Wolfram Alpha": "WOLFRAM_ALPHA_API_KEY"
         }
@@ -534,7 +536,7 @@ class InterpretMap(object):
             direction="Input",
         )
         source.filter.type = "ValueList"
-        source.filter.list = ["OpenRouter", "OpenAI", "Azure OpenAI", "Claude", "DeepSeek", "Local LLM"]
+        source.filter.list = ["OpenRouter", "GitHub Models", "OpenAI", "Azure OpenAI", "Claude", "DeepSeek", "Local LLM"]
         source.value = "OpenRouter"
 
         model = arcpy.Parameter(
@@ -619,6 +621,7 @@ class InterpretMap(object):
             "Claude": "ANTHROPIC_API_KEY",
             "DeepSeek": "DEEPSEEK_API_KEY",
             "OpenRouter": "OPENROUTER_API_KEY",
+            "GitHub Models": None,
             "Local LLM": None
         }
         try:
@@ -649,7 +652,7 @@ class InterpretMap(object):
             return
 
         screenshot_info = context.get("screenshot") if context else None
-        provider_supports_vision = source in ("OpenAI", "Azure OpenAI", "OpenRouter")
+        provider_supports_vision = source in ("OpenAI", "Azure OpenAI", "OpenRouter", "GitHub Models")
         model_allows_vision = model_supports_images(source, model) if provider_supports_vision else False
         model_label = model or "current model"
         use_screenshot = bool(include_screenshot) and bool(screenshot_info) and provider_supports_vision and model_allows_vision
@@ -755,7 +758,7 @@ class Python(object):
             direction="Input",
         )
         source.filter.type = "ValueList"
-        source.filter.list = ["OpenRouter", "OpenAI", "Azure OpenAI", "Claude", "DeepSeek", "Local LLM"]
+        source.filter.list = ["OpenRouter", "GitHub Models", "OpenAI", "Azure OpenAI", "Claude", "DeepSeek", "Local LLM"]
         source.value = "OpenRouter"
 
         model = arcpy.Parameter(
@@ -885,6 +888,7 @@ class Python(object):
             "Claude": "ANTHROPIC_API_KEY",
             "DeepSeek": "DEEPSEEK_API_KEY",
             "OpenRouter": "OPENROUTER_API_KEY",
+            "GitHub Models": None,
             "Local LLM": None
         }
         try:
@@ -968,9 +972,6 @@ class Python(object):
         """This method takes place after outputs are processed and
         added to the display."""
         return
-    
-
-
 class ConvertTextToNumeric(object):
     def __init__(self):
         """Define the tool (tool name is the name of the class)."""
@@ -989,7 +990,7 @@ class ConvertTextToNumeric(object):
             direction="Input",
         )
         source.filter.type = "ValueList"
-        source.filter.list = ["OpenRouter", "OpenAI", "Azure OpenAI", "Claude", "DeepSeek", "Local LLM"]
+        source.filter.list = ["OpenRouter", "GitHub Models", "OpenAI", "Azure OpenAI", "Claude", "DeepSeek", "Local LLM"]
         source.value = "OpenRouter"
 
         model = arcpy.Parameter(
@@ -1119,6 +1120,7 @@ class ConvertTextToNumeric(object):
             "Claude": "ANTHROPIC_API_KEY",
             "DeepSeek": "DEEPSEEK_API_KEY",
             "OpenRouter": "OPENROUTER_API_KEY",
+            "GitHub Models": None,
             "Local LLM": None
         }
         try:
@@ -1197,7 +1199,7 @@ class GenerateTool(object):
             direction="Input",
         )
         source.filter.type = "ValueList"
-        source.filter.list = ["OpenRouter", "OpenAI", "Azure OpenAI", "Claude", "DeepSeek", "Local LLM"]
+        source.filter.list = ["OpenRouter", "GitHub Models", "OpenAI", "Azure OpenAI", "Claude", "DeepSeek", "Local LLM"]
         source.value = "OpenRouter"
 
         model = arcpy.Parameter(
@@ -1427,6 +1429,7 @@ class GenerateTool(object):
             "Claude": "ANTHROPIC_API_KEY",
             "DeepSeek": "DEEPSEEK_API_KEY",
             "OpenRouter": "OPENROUTER_API_KEY",
+            "GitHub Models": None,
             "Local LLM": None
         }
         try:
@@ -1562,3 +1565,6 @@ Requirements:
         """This method takes place after outputs are processed and
         added to the display."""
         return
+
+
+

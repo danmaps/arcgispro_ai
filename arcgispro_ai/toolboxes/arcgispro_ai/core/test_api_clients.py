@@ -13,12 +13,14 @@ from esri.toolboxes.arcgispro_ai.core.api_clients import (
     AzureOpenAIClient,
     ClaudeClient,
     DeepSeekClient,
+    GitHubModelsClient,
     LocalLLMClient,
     WolframAlphaClient,
     get_client,
     GeoJSONUtils,
     parse_numeric_value
 )
+from arcgispro_ai.toolboxes.arcgispro_ai.core.model_registry import DEFAULT_GITHUB_MODELS
 
 class TestAPIClient(unittest.TestCase):
     def setUp(self):
@@ -226,6 +228,58 @@ class TestLocalLLMClient(unittest.TestCase):
         response = self.client.get_completion(messages, response_format="json_object")
         self.assertEqual(response, "Hello!")
 
+class TestGitHubModelsClient(unittest.TestCase):
+    def setUp(self):
+        self.api_key = "test-github-token"
+        self.client = GitHubModelsClient(self.api_key, model="openai/gpt-4.1")
+
+    @patch.object(GitHubModelsClient, "_post_json")
+    def test_get_completion(self, mock_post_json):
+        mock_post_json.return_value = {
+            "choices": [{"message": {"content": "Hello from GitHub Models!"}}]
+        }
+
+        messages = [
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": "Say hello!"},
+        ]
+        response = self.client.get_completion(messages)
+        self.assertEqual(response, "Hello from GitHub Models!")
+
+        mock_post_json.assert_called_with(
+            {
+                "model": "openai/gpt-4.1",
+                "messages": messages,
+                "temperature": 0.5,
+                "max_tokens": 4096,
+            }
+        )
+
+    @patch("arcgispro_ai.toolboxes.arcgispro_ai.providers.github_models.request.urlopen")
+    def test_get_available_models_uses_curated_order(self, mock_urlopen):
+        mock_response = Mock()
+        mock_response.read.return_value = json.dumps(
+            [
+                {"id": "meta/llama-3.2-90b-vision-instruct"},
+                {"id": "openai/gpt-4.1"},
+                {"id": "openai/gpt-4.1-mini"},
+                {"id": "random/vendor-model"},
+            ]
+        ).encode("utf-8")
+        mock_urlopen.return_value.__enter__.return_value = mock_response
+
+        models = self.client.get_available_models()
+        self.assertEqual(
+            models,
+            ["openai/gpt-4.1", "openai/gpt-4.1-mini", "meta/llama-3.2-90b-vision-instruct"],
+        )
+
+    @patch("arcgispro_ai.toolboxes.arcgispro_ai.providers.github_models.request.urlopen")
+    def test_get_available_models_fallback_when_request_fails(self, mock_urlopen):
+        mock_urlopen.side_effect = Exception("network failure")
+        models = self.client.get_available_models()
+        self.assertEqual(models, DEFAULT_GITHUB_MODELS)
+
 class TestWolframAlphaClient(unittest.TestCase):
     def setUp(self):
         self.api_key = os.getenv('WOLFRAM_ALPHA_API_KEY', 'test-api-key')
@@ -284,6 +338,11 @@ class TestGetClient(unittest.TestCase):
         client = get_client("Local LLM", "", base_url="http://localhost:8000")
         self.assertIsInstance(client, LocalLLMClient)
         self.assertEqual(client.base_url, "http://localhost:8000")
+
+    def test_get_github_models_client(self):
+        client = get_client("GitHub Models", self.api_key, model="openai/gpt-4.1")
+        self.assertIsInstance(client, GitHubModelsClient)
+        self.assertEqual(client.model, "openai/gpt-4.1")
 
     def test_get_wolfram_alpha_client(self):
         client = get_client("Wolfram Alpha", self.api_key)

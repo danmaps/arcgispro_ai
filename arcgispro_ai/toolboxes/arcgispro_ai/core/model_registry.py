@@ -15,6 +15,12 @@ VISION_MODEL_HINTS = {
         "anthropic/claude-4.5",
         "meta-llama/llama-3.2-vision",
     ],
+    "GitHub Models": [
+        "gpt-4o",
+        "omni",
+        "vision",
+        "llama-3.2-vision",
+    ],
 }
 
 # Curated OpenRouter model list aligned with the Copilot-style picker.
@@ -41,6 +47,21 @@ OPENROUTER_CURATED_MODELS = [
 
 # Fallback short list for OpenRouter if dynamic catalog fetch fails
 DEFAULT_OPENROUTER_MODELS = OPENROUTER_CURATED_MODELS
+
+
+# Curated GitHub Models options for the toolbox picker.
+GITHUB_MODELS_CURATED_MODELS = [
+    "openai/gpt-4.1",
+    "openai/gpt-4.1-mini",
+    "openai/gpt-4o",
+    "openai/gpt-5-mini",
+    "deepseek/deepseek-r1",
+    "meta/llama-3.2-90b-vision-instruct",
+    "meta/llama-3.3-70b-instruct",
+]
+
+# Fallback short list for GitHub Models.
+DEFAULT_GITHUB_MODELS = GITHUB_MODELS_CURATED_MODELS
 
 
 def model_supports_images(source: str, model: Optional[str] = None) -> bool:
