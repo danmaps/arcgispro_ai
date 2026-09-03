@@ -1,5 +1,7 @@
 # ArcGIS Pro AI Toolbox
 
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/Z4L326AT14)
+
 <p align="center">
   <img src="docs/logo.png" alt="ArcGIS Pro AI Toolbox logo" height="80"/>
 </p>
