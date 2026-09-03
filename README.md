@@ -21,6 +21,8 @@
 - [Docs](https://danmaps.github.io/arcgispro_ai/)
 - [Agent Instructions](AGENT_INSTRUCTIONS.md)
 
+Need help installing this, integrating it into your workflow, or building something similar? I offer small fixed-scope GIS automation projects. [Book a call](https://calendly.com/dannybmcvey).
+
 ---
 
 ## Why ArcGIS Pro AI Toolbox?
